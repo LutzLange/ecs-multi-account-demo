@@ -1,4 +1,11 @@
-# Istio Ambient Multi-Account ECS Integration - Complete Guide
+**WORK in progress 6-Nov-2025**
+TODO: 
+- add EKS cluster creation
+- check connectivity section
+- check file paths
+- run through from clean environment top to bottom
+
+# Istio Ambient Multi-Account ECS Integration
 
 This guide demonstrates **Istio Ambient service mesh** across multiple AWS ECS clusters in different accounts, showcasing zero-trust mTLS, unified policy management, and seamless cross-account service discovery.
 
