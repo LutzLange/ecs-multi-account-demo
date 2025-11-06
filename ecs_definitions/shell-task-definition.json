@@ -1,0 +1,21 @@
+{
+    "family": "shell-task-definition",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "containerDefinitions": [
+        {
+            "name": "shell",
+            "image": "curlimages/curl:latest",
+            "essential": true,
+            "command": ["sleep", "3600"],
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "protocol": "tcp"
+                }
+            ]
+        }
+    ]
+}

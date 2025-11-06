@@ -1,0 +1,26 @@
+{
+    "family": "echo-task-definition",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "containerDefinitions": [
+        {
+            "name": "echo-service",
+            "image": "ealen/echo-server:latest",
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "PORT",
+                    "value": "8080"
+                }
+            ]
+        }
+    ]
+}
