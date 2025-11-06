@@ -141,7 +141,6 @@ This section creates all required AWS infrastructure using an automated, idempot
 Execute the automated setup script:
 
 ```bash
-chmod +x setup-ecs-multi-account.sh
 ./scripts/setup-ecs-multi-account.sh
 ```
 
