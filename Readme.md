@@ -121,6 +121,7 @@ aws sso login --profile $EXTERNAL_ACCOUNT_PROFILE
 Populate the prepared temaplate with your current values and pass it to `eksctl` to create an AWS EKS cluster for Istio Ambient ECS demo.
 
 ```bash
+export AWS_PROFILE=$INT
 eval "echo \"$(cat manifests/eks-cluster.yaml)\"" | eksctl create cluster --config-file -
 ```
 
