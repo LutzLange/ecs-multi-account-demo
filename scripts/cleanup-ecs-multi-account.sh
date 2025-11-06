@@ -49,6 +49,35 @@ validate_env() {
     
     export INT=$LOCAL_ACCOUNT_PROFILE
     export EXT=$EXTERNAL_ACCOUNT_PROFILE
+    
+    # Get account IDs if not set
+    if [ -z "$LOCAL_ACCOUNT" ]; then
+        log_info "Discovering LOCAL_ACCOUNT ID..."
+        LOCAL_ACCOUNT=$(aws sts get-caller-identity \
+            --profile "$LOCAL_ACCOUNT_PROFILE" \
+            --query Account \
+            --output text 2>/dev/null || echo "")
+        if [ -z "$LOCAL_ACCOUNT" ]; then
+            log_error "Could not determine LOCAL_ACCOUNT ID"
+            exit 1
+        fi
+        export LOCAL_ACCOUNT
+        log_info "LOCAL_ACCOUNT: $LOCAL_ACCOUNT"
+    fi
+    
+    if [ -z "$EXTERNAL_ACCOUNT" ]; then
+        log_info "Discovering EXTERNAL_ACCOUNT ID..."
+        EXTERNAL_ACCOUNT=$(aws sts get-caller-identity \
+            --profile "$EXTERNAL_ACCOUNT_PROFILE" \
+            --query Account \
+            --output text 2>/dev/null || echo "")
+        if [ -z "$EXTERNAL_ACCOUNT" ]; then
+            log_error "Could not determine EXTERNAL_ACCOUNT ID"
+            exit 1
+        fi
+        export EXTERNAL_ACCOUNT
+        log_info "EXTERNAL_ACCOUNT: $EXTERNAL_ACCOUNT"
+    fi
 }
 
 # Check if resource exists
@@ -336,6 +365,95 @@ cleanup_ecs() {
     echo ""
 }
 
+# Helper function to delete a role
+delete_iam_role() {
+    local role_name=$1
+    local profile=$2
+    
+    log_info "Processing role: $role_name"
+    
+    # Check if role exists
+    if ! aws iam get-role --role-name "$role_name" --profile "$profile" &>/dev/null; then
+        log_info "  Role $role_name does not exist"
+        return 0
+    fi
+    
+    # Detach all managed policies
+    log_info "  Detaching managed policies from $role_name..."
+    local attached_policies=$(aws iam list-attached-role-policies \
+        --role-name "$role_name" \
+        --profile "$profile" \
+        --query 'AttachedPolicies[].PolicyArn' \
+        --output text 2>/dev/null || echo "")
+    
+    if [ -n "$attached_policies" ]; then
+        for policy_arn in $attached_policies; do
+            aws iam detach-role-policy \
+                --role-name "$role_name" \
+                --policy-arn "$policy_arn" \
+                --profile "$profile" 2>/dev/null || true
+        done
+    fi
+    
+    # Delete inline policies
+    local inline_policies=$(aws iam list-role-policies \
+        --role-name "$role_name" \
+        --profile "$profile" \
+        --query 'PolicyNames' \
+        --output text 2>/dev/null || echo "")
+    
+    if [ -n "$inline_policies" ]; then
+        for policy_name in $inline_policies; do
+            aws iam delete-role-policy \
+                --role-name "$role_name" \
+                --policy-name "$policy_name" \
+                --profile "$profile" 2>/dev/null || true
+        done
+    fi
+    
+    # Delete role
+    if aws iam delete-role \
+        --role-name "$role_name" \
+        --profile "$profile" 2>/dev/null; then
+        DELETED_RESOURCES+=("IAM role: $role_name")
+    fi
+}
+
+# Helper function to delete a policy
+delete_iam_policy() {
+    local policy_arn=$1
+    local profile=$2
+    local policy_display_name=$3
+    
+    # Check if policy exists
+    if ! aws iam get-policy --policy-arn "$policy_arn" --profile "$profile" &>/dev/null; then
+        return 0
+    fi
+    
+    log_info "  Deleting policy: $policy_display_name"
+    
+    # Delete all non-default versions
+    local versions=$(aws iam list-policy-versions \
+        --policy-arn "$policy_arn" \
+        --profile "$profile" \
+        --query 'Versions[?IsDefaultVersion==`false`].VersionId' \
+        --output text 2>/dev/null || echo "")
+    
+    for version in $versions; do
+        aws iam delete-policy-version \
+            --policy-arn "$policy_arn" \
+            --version-id "$version" \
+            --profile "$profile" 2>/dev/null || true
+    done
+    
+    # Delete policy
+    if aws iam delete-policy \
+        --policy-arn "$policy_arn" \
+        --profile "$profile" 2>/dev/null; then
+        DELETED_RESOURCES+=("IAM policy: $policy_display_name")
+    fi
+}
+
 # Cleanup IAM Resources
 cleanup_iam() {
     local account_type=$1
@@ -343,114 +461,71 @@ cleanup_iam() {
     log_section "=== Cleaning Up IAM Resources in ${account_type^^} Account ==="
     
     local profile=$LOCAL_ACCOUNT_PROFILE
-    local role_names=("eks-ecs-task-role")
+    local account_id=$LOCAL_ACCOUNT
     
-    if [ "$account_type" == "local" ]; then
-        role_names+=("istiod-role" "istiod-local")
-    else
+    if [ "$account_type" == "external" ]; then
         profile=$EXTERNAL_ACCOUNT_PROFILE
-        role_names+=("istiod-external")
+        account_id=$EXTERNAL_ACCOUNT
     fi
     
-    for role_name in "${role_names[@]}"; do
-        log_info "Processing role: $role_name"
-        
-        # Check if role exists
-        if ! aws iam get-role --role-name "$role_name" --profile "$profile" &>/dev/null; then
-            log_info "  Role $role_name does not exist"
-            continue
-        fi
-        
-        # Detach all policies
-        log_info "  Detaching policies from $role_name..."
-        local attached_policies=$(aws iam list-attached-role-policies \
-            --role-name "$role_name" \
-            --profile "$profile" \
-            --query 'AttachedPolicies[].PolicyArn' \
-            --output text 2>/dev/null || echo "")
-        
-        if [ -n "$attached_policies" ]; then
-            for policy_arn in $attached_policies; do
-                aws iam detach-role-policy \
-                    --role-name "$role_name" \
-                    --policy-arn "$policy_arn" \
-                    --profile "$profile" 2>/dev/null || true
-            done
-        fi
-        
-        # Delete inline policies
-        local inline_policies=$(aws iam list-role-policies \
-            --role-name "$role_name" \
-            --profile "$profile" \
-            --query 'PolicyNames' \
-            --output text 2>/dev/null || echo "")
-        
-        if [ -n "$inline_policies" ]; then
-            for policy_name in $inline_policies; do
-                aws iam delete-role-policy \
-                    --role-name "$role_name" \
-                    --policy-name "$policy_name" \
-                    --profile "$profile" 2>/dev/null || true
-            done
-        fi
-        
-        # Delete role
-        if aws iam delete-role \
-            --role-name "$role_name" \
-            --profile "$profile" 2>/dev/null; then
-            DELETED_RESOURCES+=("IAM role: $role_name")
-        fi
+    # Define roles to delete (check both with and without path)
+    local base_roles=("eks-ecs-task-role")
+    local path_roles=("ecs/ambient/eks-ecs-task-role")
+    
+    if [ "$account_type" == "local" ]; then
+        base_roles+=("istiod-role" "istiod-local")
+    else
+        base_roles+=("istiod-external")
+    fi
+    
+    # Delete roles without path prefix
+    for role_name in "${base_roles[@]}"; do
+        delete_iam_role "$role_name" "$profile"
     done
     
-    # Delete custom policies in local account
+    # Delete roles WITH path prefix (these need the full path in the role name)
+    for role_path in "${path_roles[@]}"; do
+        delete_iam_role "$role_path" "$profile"
+    done
+    
+    # Delete custom policies
+    log_info "Deleting custom IAM policies..."
+    
+    # Policy paths to check (both root and /ecs/ambient/)
+    local policy_paths=("" "ecs/ambient/")
+    
     if [ "$account_type" == "local" ]; then
-        log_info "Deleting custom IAM policies..."
-        for policy_name in istiod-permission-policy eks-ecs-task-policy; do
-            local policy_arn="arn:aws:iam::${LOCAL_ACCOUNT}:policy/$policy_name"
+        # Local account policies
+        for path in "${policy_paths[@]}"; do
+            local path_prefix=""
+            local display_prefix=""
+            if [ -n "$path" ]; then
+                path_prefix="${path}"
+                display_prefix="/${path}"
+            fi
             
-            # Check if policy exists
-            if aws iam get-policy --policy-arn "$policy_arn" --profile "$profile" &>/dev/null; then
-                # Delete all non-default versions
-                local versions=$(aws iam list-policy-versions \
-                    --policy-arn "$policy_arn" \
-                    --profile "$profile" \
-                    --query 'Versions[?IsDefaultVersion==`false`].VersionId' \
-                    --output text 2>/dev/null || echo "")
-                
-                for version in $versions; do
-                    aws iam delete-policy-version \
-                        --policy-arn "$policy_arn" \
-                        --version-id "$version" \
-                        --profile "$profile" 2>/dev/null || true
-                done
-                
-                # Delete policy
-                if aws iam delete-policy \
-                    --policy-arn "$policy_arn" \
-                    --profile "$profile" 2>/dev/null; then
-                    DELETED_RESOURCES+=("IAM policy: $policy_name")
-                fi
+            # eks-ecs-task-policy
+            local policy_arn="arn:aws:iam::${account_id}:policy/${path_prefix}eks-ecs-task-policy"
+            delete_iam_policy "$policy_arn" "$profile" "${display_prefix}eks-ecs-task-policy"
+            
+            # istiod-permission-policy (only in root path typically)
+            if [ -z "$path" ]; then
+                local policy_arn="arn:aws:iam::${account_id}:policy/istiod-permission-policy"
+                delete_iam_policy "$policy_arn" "$profile" "istiod-permission-policy"
             fi
         done
-        
-        # Also check for policies with /ecs/ambient/ path
-        local policy_arn="arn:aws:iam::${LOCAL_ACCOUNT}:policy/ecs/ambient/eks-ecs-task-policy"
-        if aws iam get-policy --policy-arn "$policy_arn" --profile "$profile" &>/dev/null; then
-            if aws iam delete-policy --policy-arn "$policy_arn" --profile "$profile" 2>/dev/null; then
-                DELETED_RESOURCES+=("IAM policy: /ecs/ambient/eks-ecs-task-policy")
+    else
+        # External account policies
+        for path in "${policy_paths[@]}"; do
+            local path_prefix=""
+            local display_prefix=""
+            if [ -n "$path" ]; then
+                path_prefix="${path}"
+                display_prefix="/${path}"
             fi
-        fi
-    fi
-    
-    # Delete task policy in external account
-    if [ "$account_type" == "external" ]; then
-        for path in "" "/ecs/ambient/"; do
-            local policy_arn="arn:aws:iam::${EXTERNAL_ACCOUNT}:policy/${path}eks-ecs-task-policy"
-            if aws iam get-policy --policy-arn "$policy_arn" --profile "$profile" &>/dev/null; then
-                if aws iam delete-policy --policy-arn "$policy_arn" --profile "$profile" 2>/dev/null; then
-                    DELETED_RESOURCES+=("IAM policy: ${path}eks-ecs-task-policy")
-                fi
-            fi
+            
+            local policy_arn="arn:aws:iam::${account_id}:policy/${path_prefix}eks-ecs-task-policy"
+            delete_iam_policy "$policy_arn" "$profile" "${display_prefix}eks-ecs-task-policy"
         done
     fi
     

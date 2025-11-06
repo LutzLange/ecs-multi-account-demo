@@ -68,7 +68,7 @@ required_vars=(
     "AWS_REGION"
     "CLUSTER_NAME"
     "EXTERNAL_SUBNETS"
-    "EXTERNAL_ECS_SG"
+    "EXTERNAL_SG"
 )
 
 for var in "${required_vars[@]}"; do

@@ -35,6 +35,85 @@ validate_env() {
     export EXT=$EXTERNAL_ACCOUNT_PROFILE
 }
 
+# Discover and validate LOCAL_VPC from EKS cluster
+discover_local_vpc() {
+    log_info "=== Discovering Local VPC from EKS Cluster ==="
+    
+    log_info "Looking for EKS cluster: $CLUSTER_NAME"
+    log_info "Using profile: $INT"
+    log_info "Region: $AWS_REGION"
+    
+    # Check if cluster exists
+    if ! aws eks describe-cluster \
+        --name "$CLUSTER_NAME" \
+        --profile "$INT" \
+        --region "$AWS_REGION" \
+        --output json &>/dev/null; then
+        log_error "EKS cluster '$CLUSTER_NAME' not found in region $AWS_REGION"
+        log_error ""
+        log_error "Available EKS clusters in this account/region:"
+        aws eks list-clusters \
+            --profile "$INT" \
+            --region "$AWS_REGION" \
+            --query 'clusters' \
+            --output table 2>/dev/null || log_error "  (Unable to list clusters)"
+        log_error ""
+        log_error "Please check your CLUSTER_NAME environment variable"
+        log_error "Current value: CLUSTER_NAME=$CLUSTER_NAME"
+        log_error ""
+        log_error "To fix this:"
+        log_error "  1. List your EKS clusters: aws eks list-clusters --profile $INT --region $AWS_REGION"
+        log_error "  2. Set the correct cluster name: export CLUSTER_NAME=<your-actual-cluster-name>"
+        log_error "  3. Re-run this script"
+        log_error ""
+        exit 1
+    fi
+    
+    # Get local VPC ID from EKS cluster
+    local discovered_vpc=$(aws eks describe-cluster \
+        --name "$CLUSTER_NAME" \
+        --query 'cluster.resourcesVpcConfig.vpcId' \
+        --output text \
+        --profile "$INT" \
+        --region "$AWS_REGION")
+    
+    if ! resource_exists "$discovered_vpc"; then
+        log_error "Could not find VPC for EKS cluster $CLUSTER_NAME"
+        exit 1
+    fi
+    
+    # Get VPC name and CIDR for informational purposes
+    local vpc_name=$(aws ec2 describe-vpcs \
+        --vpc-ids "$discovered_vpc" \
+        --query 'Vpcs[0].Tags[?Key==`Name`].Value | [0]' \
+        --output text \
+        --profile "$INT" 2>/dev/null || echo "N/A")
+    
+    local discovered_cidr=$(aws ec2 describe-vpcs \
+        --vpc-ids "$discovered_vpc" \
+        --query 'Vpcs[0].CidrBlock' \
+        --output text \
+        --profile "$INT")
+    
+    log_info "✓ Found EKS cluster: $CLUSTER_NAME"
+    log_info "✓ VPC ID: $discovered_vpc"
+    log_info "✓ VPC Name: $vpc_name"
+    log_info "✓ VPC CIDR: $discovered_cidr"
+    
+    # Warn if LOCAL_VPC was already set to a different value
+    if [ -n "$LOCAL_VPC" ] && [ "$LOCAL_VPC" != "$discovered_vpc" ]; then
+        log_warn "LOCAL_VPC environment variable was set to: $LOCAL_VPC"
+        log_warn "But the EKS cluster '$CLUSTER_NAME' is actually using VPC: $discovered_vpc"
+        log_warn "Using the correct VPC from the EKS cluster: $discovered_vpc"
+    fi
+    
+    # Export the discovered values
+    export LOCAL_VPC="$discovered_vpc"
+    export LOCAL_CIDR="$discovered_cidr"
+    
+    log_info ""
+}
+
 # Check if resource exists
 resource_exists() {
     [ -n "$1" ] && [ "$1" != "None" ] && [ "$1" != "null" ]
@@ -380,19 +459,8 @@ configure_route_tables() {
 setup_vpc_peering() {
     log_info "=== Setting Up VPC Peering ==="
     
-    # Get local VPC ID
-    LOCAL_VPC=$(aws eks describe-cluster \
-        --name "$CLUSTER_NAME" \
-        --query 'cluster.resourcesVpcConfig.vpcId' \
-        --output text \
-        --profile "$INT")
-    
-    if ! resource_exists "$LOCAL_VPC"; then
-        log_error "Could not find VPC for EKS cluster $CLUSTER_NAME"
-        return 1
-    fi
-    
-    log_info "Local VPC: $LOCAL_VPC"
+    log_info "Using Local VPC: $LOCAL_VPC (CIDR: $LOCAL_CIDR)"
+    log_info "Using External VPC: $EXTERNAL_VPC"
     
     # Check if peering connection exists
     PEERING_ID=$(aws ec2 describe-vpc-peering-connections \
@@ -427,13 +495,7 @@ setup_vpc_peering() {
         wait_for_peering "$PEERING_ID"
     fi
     
-    # Get CIDR blocks
-    LOCAL_CIDR=$(aws ec2 describe-vpcs \
-        --vpc-ids "$LOCAL_VPC" \
-        --query 'Vpcs[0].CidrBlock' \
-        --output text \
-        --profile "$INT")
-    
+    # Get External CIDR (LOCAL_CIDR was already discovered in discover_local_vpc)
     EXTERNAL_CIDR=$(aws ec2 describe-vpcs \
         --vpc-ids "$EXTERNAL_VPC" \
         --query 'Vpcs[0].CidrBlock' \
@@ -842,6 +904,7 @@ main() {
     log_info "========================================"
     
     validate_env
+    discover_local_vpc
     
     local failed_steps=()
     
