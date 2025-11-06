@@ -282,7 +282,7 @@ spec:
       tag: ${ISTIO_TAG}
       network: eks
     license:
-      value: ${GLOO_MESH_LICENSE_KEY}
+      value: ${GLOO_LICENSE_KEY}
     cni:
       ambient:
         dnsCapture: true              # 👈 Capture DNS for service discovery
@@ -459,7 +459,7 @@ aws ecs list-clusters --profile $LOCAL_ACCOUNT_PROFILE
 aws ecs list-clusters --profile $EXTERNAL_ACCOUNT_PROFILE
 ```
 
-**Verify discovery tags (CRITICAL CHECK):**
+**Verify discovery tags:**
 
 ```bash
 # Check local clusters have the discovery tag
@@ -496,14 +496,6 @@ aws ecs list-tags-for-resource \
 ]
 ```
 
-**⚠️ If the tag is missing, Istiod will not discover the cluster!** Manually add it:
-```bash
-aws ecs tag-resource \
-  --resource-arn <cluster-arn> \
-  --tags key=ecs.solo.io/discovery-enabled,value=true \
-  --profile <profile>
-```
-
 ---
 
 ## Step 5: Add Workloads to the Service Mesh
@@ -513,7 +505,7 @@ aws ecs tag-resource \
 Create namespaces with Ambient mode enabled:
 
 ```bash
-source ./create-k8s-namespaces-3-clusters.sh
+source ./scripts/create-k8s-namespaces-3-clusters.sh
 ```
 
 **What this creates:**
@@ -533,7 +525,7 @@ metadata:
 **Verify namespaces:**
 
 ```bash
-kubectl get ns | grep ecs-istio-multi-account
+kubectl get ns | grep ecs-
 ```
 
 Expected:
