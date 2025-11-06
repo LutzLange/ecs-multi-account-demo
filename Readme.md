@@ -19,28 +19,28 @@ Deploy a single Istio control plane in an EKS cluster that manages ECS services 
 ## Architecture: Service Mesh Perspective
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    ISTIO CONTROL PLANE                      │
-│                      (in EKS cluster)                        │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐           │
-│  │  Istiod  │  │ Ztunnel  │  │  East-West GW  │           │
-│  │          │  │  (CNI)   │  │   (HBONE)      │           │
-│  └──────────┘  └──────────┘  └────────────────┘           │
-│       │                              │                      │
-│       │ Service Discovery            │ Secure tunnel       │
-│       │ Policy Enforcement           │ mTLS (HBONE)        │
-│       │                              │                      │
-└───────┼──────────────────────────────┼─────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    ISTIO CONTROL PLANE                  │
+│                      (in EKS cluster)                   │
+│                                                         │
+│  ┌──────────┐  ┌──────────┐  ┌────────────────┐         │
+│  │  Istiod  │  │ Ztunnel  │  │  East-West GW  │         │
+│  │          │  │  (CNI)   │  │   (HBONE)      │         │
+│  └──────────┘  └──────────┘  └────────────────┘         │
+│       │                              │                  │
+│       │ Service Discovery            │ Secure tunnel    │
+│       │ Policy Enforcement           │ mTLS (HBONE)     │
+│       │                              │                  │
+└───────┼──────────────────────────────┼──────────────────┘
         │                              │
-        ├──────────┬───────────────────┼─────────┐
-        │          │                   │         │
-        ▼          ▼                   ▼         ▼
-   ┌─────────┐ ┌─────────┐       ┌─────────┐ ┌─────────┐
-   │ Cluster │ │ Cluster │       │ Cluster │ │ EKS Pod │
-   │    1    │ │    2    │       │    3    │ │         │
+        ├──────────┬───────────────────┼───────────┐
+        │          │                   │           │
+        ▼          ▼                   ▼           ▼
+   ┌─────────┐ ┌─────────┐       ┌─────────┐  ┌─────────┐
+   │ Cluster │ │ Cluster │       │ Cluster │  │ EKS Pod │
+   │    1    │ │    2    │       │    3    │  │         │
    │ (local) │ │ (local) │       │(external)│ │         │
-   └─────────┘ └─────────┘       └─────────┘ └─────────┘
+   └─────────┘ └─────────┘       └─────────┘  └─────────┘
      ecs.local   ecs.local        ecs.external
 ```
 
@@ -135,7 +135,7 @@ Execute the automated setup script:
 
 ```bash
 chmod +x setup-ecs-multi-account.sh
-./setup-ecs-multi-account.sh
+./scripts/setup-ecs-multi-account.sh
 ```
 
 **The script is idempotent** - safe to run multiple times. It will:
@@ -186,7 +186,56 @@ echo "External Role: $EXTERNAL_ROLE"
 # Part 2: Service Mesh Deployment
 
 Now that infrastructure is ready, let's deploy Istio and demonstrate service mesh capabilities.
+## Step 0: Download istioctl with ECS Support
 
+The ECS multi-cluster feature requires a specific alpha version of `istioctl` from Solo.io.
+
+### Get the istioctl Binary
+
+**Contact Solo.io to obtain the correct download link** for your operating system and architecture. Provide them with:
+- Your OS (Linux, macOS, Windows)
+- Your architecture (amd64, arm64)
+- The version you need (1.29-alpha or as specified in your license)
+
+**For Linux amd64 (example):**
+
+Once you receive the download link from Solo.io, download and extract istioctl:
+
+```bash
+# Example with version 1.29-alpha (replace with your actual link from Solo.io)
+wget https://storage.googleapis.com/gme-istio-testing-binaries/dev/1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122/istio-1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122-linux-amd64.tar.gz
+
+# Extract istioctl binary
+tar xvzf istio-1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122-linux-amd64.tar.gz \
+  --strip-components=2 \
+  istio-1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122/bin/istioctl
+
+# Clean up archive
+rm istio-*.tar.gz
+
+# Make executable
+chmod +x istioctl
+```
+
+### Verify istioctl Installation
+
+```bash
+./istioctl version
+```
+
+**Expected output (before Istio is installed):**
+```
+Istio is not present in the cluster: no running Istio pods in namespace "istio-system"
+client version: 1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122
+```
+
+**Important Notes:**
+- The istioctl binary must be in your current directory or in your PATH
+- Throughout this guide, we use `./istioctl` assuming it's in the current directory
+- The version must match the `ISTIO_TAG` environment variable you set earlier
+- This alpha version includes critical ECS multi-cluster features not in the standard Istio release
+
+  
 ## Step 1: Install Istio in Ambient Mode
 
 Install Istio with multi-account ECS discovery:
@@ -336,7 +385,7 @@ IAM Setup Complete!
 Deploy ECS clusters with services in both accounts:
 
 ```bash
-./deploy-ecs-multi-account-3-clusters.sh
+./scripts/deploy-ecs-multi-account-3-clusters.sh
 ```
 
 **What this creates:**
@@ -471,7 +520,7 @@ ecs-istio-multi-account-3   Active   1m
 Add all ECS services to the mesh:
 
 ```bash
-./add-services-to-mesh-3-clusters.sh
+./scripts/add-services-to-mesh-3-clusters.sh
 ```
 
 **What happens behind the scenes:**
