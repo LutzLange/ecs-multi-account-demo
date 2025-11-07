@@ -19,6 +19,14 @@ Deploy a single Istio control plane in an EKS cluster that manages ECS services 
 - 📊 **Rich Observability** with access logs and metrics
 
 **Architecture simplicity:** Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh concepts.
+lutz@soloist:~/git/ecs-multi-account-demo$ aws ec2 describe-vpcs --vpc-ids vpc-067901309f033b5d3 --region eu-central-1 --profile $INT --query 'Vpcs[0].[VpcId,CidrBlock,Tags[?Key==`Name`].Value|[0]]' --output tableValue|[0]]' --output table
+--------------------------------------------
+|               DescribeVpcs               |
++------------------------------------------+
+|  vpc-067901309f033b5d3                   |
+|  192.168.0.0/16                          |
+|  eksctl-istio-multi-account-cluster/VPC  |
++------------------------------------------+
 
 ---
 
@@ -628,7 +636,7 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 
 Expected output:
 
-```outputkubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- curl echo-service.ecs.local:8080
+```output
 ServiceVersion=
 ServicePort=8080
 Host=eks-echo:8080
@@ -651,33 +659,20 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 # Test cluster 2 (local)
 kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
   curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080
-
-# Test cluster 3 (external)
-kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-3.ecs.external:8080
 ```
 
 **Test cross-account connectivity to external cluster:**
 
 ```bash
-# Test cluster 3 (external account)
-kubectl exec deployment/eks-shell -- \
-  curl -s echo-service.ecs-istio-multi-account-3.ecs.external:8080
+# Test cluster 3 (external)
+kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- curl -s echo-service.ecs-${CLUSTER_NAME}-3.ecs.external:8080 | jq '{hostname: .host.hostname, ip: .host.ip}'
 ```
 
 **Expected response from echo service:**
 ```json
 {
-  "host": {
-    "hostname": "echo-service.ecs-istio-multi-account-3.ecs.external",
-    "ip": "10.1.1.101"
-  },
-  "http": {
-    "method": "GET",
-    "baseUrl": "",
-    "originalUrl": "/",
-    "protocol": "http"
-  }
+  "hostname": "echo-service.ecs-aws-accounts-3.ecs.external",
+  "ip": "::ffff:10.1.1.146"
 }
 ```
 
@@ -687,7 +682,11 @@ kubectl exec deployment/eks-shell -- \
 - Cross-account communication works seamlessly
 - All traffic is automatically encrypted with mTLS
 
----
+
+# 7-Nov-25 tested until this line with success
+
+----
+**untested area**
 
 ## Step 8: Apply Security Policies
 
