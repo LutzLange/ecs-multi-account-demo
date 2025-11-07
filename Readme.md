@@ -1,8 +1,7 @@
 **WORK in progress 6-Nov-2025**
 TODO: 
-- add EKS cluster creation
+- fix Security Groups as they are too tight to allow communication
 - check connectivity section
-- check file paths
 - run through from clean environment top to bottom
 
 # Istio Ambient Multi-Account ECS Integration
