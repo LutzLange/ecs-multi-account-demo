@@ -1,8 +1,12 @@
-**WORK in progress 6-Nov-2025**
+**WORK in progress 7-Nov-2025**
+
+This should work up to the policy section.
+
 TODO: 
-- fix Security Groups as they are too tight to allow communication
 - check connectivity section
 - run through from clean environment top to bottom
+- check and improve policy section
+- update diagram
 
 # Istio Ambient Multi-Account ECS Integration
 
