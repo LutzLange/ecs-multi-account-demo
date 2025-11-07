@@ -451,54 +451,6 @@ EXTERNAL ACCOUNT DEPLOYMENT
 
 Deployment Complete!
 ```
-
-**Verify ECS clusters:**
-
-```bash
-# List local clusters
-aws ecs list-clusters --profile $LOCAL_ACCOUNT_PROFILE
-
-# List external clusters
-aws ecs list-clusters --profile $EXTERNAL_ACCOUNT_PROFILE
-```
-
-**Verify discovery tags:**
-
-```bash
-# Check local clusters have the discovery tag
-for cluster in 1 2; do
-  echo "Checking cluster $cluster..."
-  aws ecs list-tags-for-resource \
-    --resource-arn $(aws ecs describe-clusters \
-      --clusters ecs-istio-multi-account-$cluster \
-      --profile $LOCAL_ACCOUNT_PROFILE \
-      --query 'clusters[0].clusterArn' \
-      --output text) \
-    --profile $LOCAL_ACCOUNT_PROFILE \
-    --query 'tags[?key==`ecs.solo.io/discovery-enabled`]'
-done
-
-# Check external cluster has the discovery tag
-aws ecs list-tags-for-resource \
-  --resource-arn $(aws ecs describe-clusters \
-    --clusters ecs-istio-multi-account-3 \
-    --profile $EXTERNAL_ACCOUNT_PROFILE \
-    --query 'clusters[0].clusterArn' \
-    --output text) \
-  --profile $EXTERNAL_ACCOUNT_PROFILE \
-  --query 'tags[?key==`ecs.solo.io/discovery-enabled`]'
-```
-
-**Expected output for each cluster:**
-```json
-[
-    {
-        "key": "ecs.solo.io/discovery-enabled",
-        "value": "true"
-    }
-]
-```
-
 ---
 
 ## Step 5: Add Workloads to the Service Mesh
