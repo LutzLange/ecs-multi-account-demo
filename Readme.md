@@ -18,17 +18,9 @@ Deploy a single Istio control plane in an EKS cluster that manages ECS services 
 - 🌐 **Seamless Cross-Account Communication**
 - 📊 **Rich Observability** with access logs and metrics
 
-**Architecture simplicity:** Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh concepts.
-lutz@soloist:~/git/ecs-multi-account-demo$ aws ec2 describe-vpcs --vpc-ids vpc-067901309f033b5d3 --region eu-central-1 --profile $INT --query 'Vpcs[0].[VpcId,CidrBlock,Tags[?Key==`Name`].Value|[0]]' --output tableValue|[0]]' --output table
---------------------------------------------
-|               DescribeVpcs               |
-+------------------------------------------+
-|  vpc-067901309f033b5d3                   |
-|  192.168.0.0/16                          |
-|  eksctl-istio-multi-account-cluster/VPC  |
-+------------------------------------------+
+**Architecture simplicity:** 
 
----
+Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh concepts.
 
 ## Architecture: Service Mesh Perspective
 
