@@ -251,7 +251,7 @@ create_subnets() {
         log_info "Created Private Subnet 3: $EXTERNAL_SUBNET_3"
     fi
     
-    # Public Subnet
+    # Public Subnet for NAT
     EXTERNAL_PUBLIC_SUBNET=$(aws ec2 describe-subnets \
         --filters "Name=vpc-id,Values=$EXTERNAL_VPC" "Name=tag:Name,Values=istio-ecs-public" \
         --query 'Subnets[0].SubnetId' \
@@ -263,7 +263,7 @@ create_subnets() {
     else
         EXTERNAL_PUBLIC_SUBNET=$(aws ec2 create-subnet \
             --vpc-id "$EXTERNAL_VPC" \
-            --cidr-block 10.1.10.0/24 \
+            --cidr-block 10.1.4.0/24 \
             --availability-zone "${AWS_REGION}a" \
             --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=istio-ecs-public}]' \
             --query 'Subnet.SubnetId' \
@@ -273,7 +273,7 @@ create_subnets() {
     fi
     
     export EXTERNAL_SUBNET_1 EXTERNAL_SUBNET_2 EXTERNAL_SUBNET_3 EXTERNAL_PUBLIC_SUBNET
-    export EXTERNAL_SUBNETS="${EXTERNAL_SUBNET_1},${EXTERNAL_SUBNET_2},${EXTERNAL_SUBNET_3}"
+    export EXTERNAL_SUBNETS="$EXTERNAL_SUBNET_1,$EXTERNAL_SUBNET_2,$EXTERNAL_SUBNET_3"
 }
 
 # Step 3: Create Internet Gateway
@@ -282,7 +282,7 @@ create_internet_gateway() {
     
     # Check if IGW exists
     EXTERNAL_IGW=$(aws ec2 describe-internet-gateways \
-        --filters "Name=tag:Name,Values=istio-ecs-igw" \
+        --filters "Name=attachment.vpc-id,Values=$EXTERNAL_VPC" \
         --query 'InternetGateways[0].InternetGatewayId' \
         --output text \
         --profile "$EXT" 2>/dev/null || echo "")
@@ -296,23 +296,12 @@ create_internet_gateway() {
             --output text \
             --profile "$EXT")
         log_info "Created Internet Gateway: $EXTERNAL_IGW"
-    fi
-    
-    # Attach to VPC (idempotent)
-    local attached=$(aws ec2 describe-internet-gateways \
-        --internet-gateway-ids "$EXTERNAL_IGW" \
-        --query 'InternetGateways[0].Attachments[?VpcId==`'"$EXTERNAL_VPC"'`].State' \
-        --output text \
-        --profile "$EXT" 2>/dev/null || echo "")
-    
-    if [ "$attached" != "available" ]; then
+        
         aws ec2 attach-internet-gateway \
-            --vpc-id "$EXTERNAL_VPC" \
             --internet-gateway-id "$EXTERNAL_IGW" \
-            --profile "$EXT" 2>/dev/null || log_warn "IGW already attached"
+            --vpc-id "$EXTERNAL_VPC" \
+            --profile "$EXT"
         log_info "Attached Internet Gateway to VPC"
-    else
-        log_info "Internet Gateway already attached to VPC"
     fi
     
     export EXTERNAL_IGW
@@ -322,9 +311,9 @@ create_internet_gateway() {
 create_nat_gateway() {
     log_info "=== Creating NAT Gateway ==="
     
-    # Check if NAT Gateway exists
+    # Check if NAT exists
     EXTERNAL_NAT=$(aws ec2 describe-nat-gateways \
-        --filter "Name=subnet-id,Values=$EXTERNAL_PUBLIC_SUBNET" "Name=state,Values=available,pending" \
+        --filter "Name=vpc-id,Values=$EXTERNAL_VPC" "Name=state,Values=available,pending" \
         --query 'NatGateways[0].NatGatewayId' \
         --output text \
         --profile "$EXT" 2>/dev/null || echo "")
@@ -337,14 +326,14 @@ create_nat_gateway() {
             --output text \
             --profile "$EXT")
     else
-        # Allocate Elastic IP
+        # Allocate EIP
         EXTERNAL_EIP=$(aws ec2 allocate-address \
             --domain vpc \
-            --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=istio-ecs-nat-eip}]' \
+            --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=istio-ecs-eip}]' \
             --query 'AllocationId' \
             --output text \
             --profile "$EXT")
-        log_info "Allocated Elastic IP: $EXTERNAL_EIP"
+        log_info "Allocated EIP: $EXTERNAL_EIP"
         
         # Create NAT Gateway
         EXTERNAL_NAT=$(aws ec2 create-nat-gateway \
@@ -455,6 +444,84 @@ configure_route_tables() {
     export EXTERNAL_PUBLIC_RT EXTERNAL_PRIVATE_RT
 }
 
+# Check for conflicting peering connections
+check_peering_conflicts() {
+    log_info "=== Checking for Peering Conflicts ==="
+    
+    # Get all active peerings connected to EXTERNAL_VPC
+    local peerings=$(aws ec2 describe-vpc-peering-connections \
+        --filters "Name=accepter-vpc-info.vpc-id,Values=$EXTERNAL_VPC" \
+                  "Name=status-code,Values=active,pending-acceptance" \
+        --query 'VpcPeeringConnections[*].[VpcPeeringConnectionId,RequesterVpcInfo.VpcId,RequesterVpcInfo.CidrBlock]' \
+        --output text \
+        --profile "$EXT" 2>/dev/null)
+    
+    if [ -z "$peerings" ]; then
+        log_info "No existing peerings found to external VPC"
+        return 0
+    fi
+    
+    log_info "Found existing peering(s) to external VPC:"
+    
+    local conflicts=()
+    while IFS=$'\t' read -r pcx_id requester_vpc requester_cidr; do
+        log_info "  - $pcx_id: $requester_vpc ($requester_cidr)"
+        
+        # Check if this peering uses the same CIDR but different VPC
+        if [ "$requester_cidr" = "$LOCAL_CIDR" ] && [ "$requester_vpc" != "$LOCAL_VPC" ]; then
+            conflicts+=("$pcx_id|$requester_vpc|$requester_cidr")
+        fi
+    done <<< "$peerings"
+    
+    if [ ${#conflicts[@]} -gt 0 ]; then
+        log_error ""
+        log_error "=========================================="
+        log_error "CONFLICT DETECTED: Asymmetric routing issue!"
+        log_error "=========================================="
+        log_error ""
+        log_error "Found peering(s) with same CIDR ($LOCAL_CIDR) from different VPC(s)."
+        log_error "This will cause connection failures due to asymmetric routing."
+        log_error ""
+        log_error "Conflicting peerings:"
+        for conflict in "${conflicts[@]}"; do
+            IFS='|' read -r pcx old_vpc cidr <<< "$conflict"
+            log_error "  - Peering: $pcx"
+            log_error "    From VPC: $old_vpc (probably an old/unused VPC)"
+            log_error "    CIDR: $cidr"
+        done
+        log_error ""
+        log_error "Your current setup:"
+        log_error "  - EKS Cluster: $CLUSTER_NAME"
+        log_error "  - EKS VPC: $LOCAL_VPC"
+        log_error "  - EKS CIDR: $LOCAL_CIDR"
+        log_error "  - External VPC: $EXTERNAL_VPC"
+        log_error ""
+        log_error "=========================================="
+        log_error "How to fix:"
+        log_error "=========================================="
+        log_error ""
+        log_error "Delete the conflicting peering(s) with the following command(s):"
+        log_error ""
+        for conflict in "${conflicts[@]}"; do
+            IFS='|' read -r pcx old_vpc cidr <<< "$conflict"
+            log_error "  aws ec2 delete-vpc-peering-connection \\"
+            log_error "    --vpc-peering-connection-id $pcx \\"
+            log_error "    --region $AWS_REGION \\"
+            log_error "    --profile $EXT"
+            log_error ""
+        done
+        log_error "After deleting the conflicting peering(s), re-run this script."
+        log_error ""
+        log_error "If VPC $old_vpc is still in use, you have two options:"
+        log_error "  1. Use a different CIDR for your EKS cluster"
+        log_error "  2. Keep both peerings but fix route tables manually"
+        log_error ""
+        exit 1
+    else
+        log_info "No conflicts detected"
+    fi
+}
+
 # Step 6: Setup VPC Peering
 setup_vpc_peering() {
     log_info "=== Setting Up VPC Peering ==="
@@ -462,7 +529,10 @@ setup_vpc_peering() {
     log_info "Using Local VPC: $LOCAL_VPC (CIDR: $LOCAL_CIDR)"
     log_info "Using External VPC: $EXTERNAL_VPC"
     
-    # Check if peering connection exists
+    # Check for conflicts first
+    check_peering_conflicts
+    
+    # Check if peering connection exists between these specific VPCs
     PEERING_ID=$(aws ec2 describe-vpc-peering-connections \
         --filters "Name=requester-vpc-info.vpc-id,Values=$LOCAL_VPC" \
                   "Name=accepter-vpc-info.vpc-id,Values=$EXTERNAL_VPC" \
@@ -495,7 +565,7 @@ setup_vpc_peering() {
         wait_for_peering "$PEERING_ID"
     fi
     
-    # Get External CIDR (LOCAL_CIDR was already discovered in discover_local_vpc)
+    # Get External CIDR
     EXTERNAL_CIDR=$(aws ec2 describe-vpcs \
         --vpc-ids "$EXTERNAL_VPC" \
         --query 'Vpcs[0].CidrBlock' \
@@ -504,20 +574,55 @@ setup_vpc_peering() {
     
     log_info "Local CIDR: $LOCAL_CIDR, External CIDR: $EXTERNAL_CIDR"
     
-    # Add routes in external account
-    aws ec2 create-route \
-        --route-table-id "$EXTERNAL_PRIVATE_RT" \
-        --destination-cidr-block "$LOCAL_CIDR" \
-        --vpc-peering-connection-id "$PEERING_ID" \
-        --profile "$EXT" 2>/dev/null || log_info "Peering route in external private RT already exists"
+    # Add/replace routes in external account - use replace to handle existing routes
+    log_info "Configuring routes in external account..."
     
-    aws ec2 create-route \
-        --route-table-id "$EXTERNAL_PUBLIC_RT" \
-        --destination-cidr-block "$LOCAL_CIDR" \
-        --vpc-peering-connection-id "$PEERING_ID" \
-        --profile "$EXT" 2>/dev/null || log_info "Peering route in external public RT already exists"
+    # Check if route exists, then create or replace
+    local existing_route=$(aws ec2 describe-route-tables \
+        --route-table-ids "$EXTERNAL_PRIVATE_RT" \
+        --query "RouteTables[0].Routes[?DestinationCidrBlock=='$LOCAL_CIDR'].VpcPeeringConnectionId" \
+        --output text \
+        --profile "$EXT" 2>/dev/null)
+    
+    if [ -n "$existing_route" ] && [ "$existing_route" != "$PEERING_ID" ]; then
+        log_info "Replacing stale route to $LOCAL_CIDR in private RT (was via $existing_route)"
+        aws ec2 replace-route \
+            --route-table-id "$EXTERNAL_PRIVATE_RT" \
+            --destination-cidr-block "$LOCAL_CIDR" \
+            --vpc-peering-connection-id "$PEERING_ID" \
+            --profile "$EXT" 2>/dev/null || log_error "Failed to replace route in private RT"
+    else
+        aws ec2 create-route \
+            --route-table-id "$EXTERNAL_PRIVATE_RT" \
+            --destination-cidr-block "$LOCAL_CIDR" \
+            --vpc-peering-connection-id "$PEERING_ID" \
+            --profile "$EXT" 2>/dev/null || log_info "Route already exists in private RT"
+    fi
+    
+    # Same for public route table
+    existing_route=$(aws ec2 describe-route-tables \
+        --route-table-ids "$EXTERNAL_PUBLIC_RT" \
+        --query "RouteTables[0].Routes[?DestinationCidrBlock=='$LOCAL_CIDR'].VpcPeeringConnectionId" \
+        --output text \
+        --profile "$EXT" 2>/dev/null)
+    
+    if [ -n "$existing_route" ] && [ "$existing_route" != "$PEERING_ID" ]; then
+        log_info "Replacing stale route to $LOCAL_CIDR in public RT (was via $existing_route)"
+        aws ec2 replace-route \
+            --route-table-id "$EXTERNAL_PUBLIC_RT" \
+            --destination-cidr-block "$LOCAL_CIDR" \
+            --vpc-peering-connection-id "$PEERING_ID" \
+            --profile "$EXT" 2>/dev/null || log_error "Failed to replace route in public RT"
+    else
+        aws ec2 create-route \
+            --route-table-id "$EXTERNAL_PUBLIC_RT" \
+            --destination-cidr-block "$LOCAL_CIDR" \
+            --vpc-peering-connection-id "$PEERING_ID" \
+            --profile "$EXT" 2>/dev/null || log_info "Route already exists in public RT"
+    fi
     
     # Add routes in local account
+    log_info "Configuring routes in local account..."
     LOCAL_ROUTE_TABLES=$(aws ec2 describe-route-tables \
         --filters "Name=vpc-id,Values=$LOCAL_VPC" \
         --query 'RouteTables[*].RouteTableId' \
@@ -525,11 +630,26 @@ setup_vpc_peering() {
         --profile "$INT")
     
     for rt in $LOCAL_ROUTE_TABLES; do
-        aws ec2 create-route \
-            --route-table-id "$rt" \
-            --destination-cidr-block "$EXTERNAL_CIDR" \
-            --vpc-peering-connection-id "$PEERING_ID" \
-            --profile "$INT" 2>/dev/null || true
+        local existing_route=$(aws ec2 describe-route-tables \
+            --route-table-ids "$rt" \
+            --query "RouteTables[0].Routes[?DestinationCidrBlock=='$EXTERNAL_CIDR'].VpcPeeringConnectionId" \
+            --output text \
+            --profile "$INT" 2>/dev/null)
+        
+        if [ -n "$existing_route" ] && [ "$existing_route" != "$PEERING_ID" ]; then
+            log_info "Replacing stale route to $EXTERNAL_CIDR in RT $rt (was via $existing_route)"
+            aws ec2 replace-route \
+                --route-table-id "$rt" \
+                --destination-cidr-block "$EXTERNAL_CIDR" \
+                --vpc-peering-connection-id "$PEERING_ID" \
+                --profile "$INT" 2>/dev/null || log_error "Failed to replace route in RT $rt"
+        else
+            aws ec2 create-route \
+                --route-table-id "$rt" \
+                --destination-cidr-block "$EXTERNAL_CIDR" \
+                --vpc-peering-connection-id "$PEERING_ID" \
+                --profile "$INT" 2>/dev/null || true
+        fi
     done
     log_info "Added peering routes to local route tables"
     
@@ -548,7 +668,7 @@ configure_security_groups() {
         --profile "$EXT" 2>/dev/null || echo "")
     
     if resource_exists "$EXTERNAL_SG"; then
-        log_info "External Security Group already exists: $EXTERNAL_SG"
+        log_info "Security Group already exists: $EXTERNAL_SG"
     else
         EXTERNAL_SG=$(aws ec2 create-security-group \
             --group-name istio-ecs-sg \
@@ -558,34 +678,55 @@ configure_security_groups() {
             --query 'GroupId' \
             --output text \
             --profile "$EXT")
-        log_info "Created External Security Group: $EXTERNAL_SG"
+        log_info "Created Security Group: $EXTERNAL_SG"
     fi
     
-    # Add ingress rules (idempotent - will fail if rule exists, which is fine)
-    # Allow HTTPS from local VPC
+    # Allow traffic within security group
+    aws ec2 authorize-security-group-ingress \
+        --group-id "$EXTERNAL_SG" \
+        --protocol all \
+        --source-group "$EXTERNAL_SG" \
+        --profile "$EXT" 2>/dev/null || log_info "Internal SG rule already exists"
+    
+    # Allow specific TCP ports from local VPC CIDR
+    log_info "Configuring ingress rules for external security group from local VPC..."
+    
+    aws ec2 authorize-security-group-ingress \
+        --group-id "$EXTERNAL_SG" \
+        --protocol tcp \
+        --port 80 \
+        --cidr "$LOCAL_CIDR" \
+        --profile "$EXT" 2>/dev/null || log_info "TCP port 80 rule already exists"
+    
+    aws ec2 authorize-security-group-ingress \
+        --group-id "$EXTERNAL_SG" \
+        --protocol tcp \
+        --port 8080 \
+        --cidr "$LOCAL_CIDR" \
+        --profile "$EXT" 2>/dev/null || log_info "TCP port 8080 rule already exists"
+    
     aws ec2 authorize-security-group-ingress \
         --group-id "$EXTERNAL_SG" \
         --protocol tcp \
         --port 443 \
         --cidr "$LOCAL_CIDR" \
-        --profile "$EXT" 2>/dev/null || log_info "HTTPS rule already exists"
+        --profile "$EXT" 2>/dev/null || log_info "TCP port 443 rule already exists"
     
-    # Allow all traffic within security group
-    aws ec2 authorize-security-group-ingress \
-        --group-id "$EXTERNAL_SG" \
-        --protocol -1 \
-        --source-group "$EXTERNAL_SG" \
-        --profile "$EXT" 2>/dev/null || log_info "Self-referencing rule already exists"
-    
-    # Allow HBONE port 15008
     aws ec2 authorize-security-group-ingress \
         --group-id "$EXTERNAL_SG" \
         --protocol tcp \
-        --port 15008 \
+        --port 15000-15200 \
         --cidr "$LOCAL_CIDR" \
-        --profile "$EXT" 2>/dev/null || log_info "HBONE rule already exists"
+        --profile "$EXT" 2>/dev/null || log_info "TCP port 15000-15200 rule already exists"
     
-    # Get Local Cluster Security Group
+    aws ec2 authorize-security-group-ingress \
+        --group-id "$EXTERNAL_SG" \
+        --protocol icmp \
+        --port -1 \
+        --cidr "$LOCAL_CIDR" \
+        --profile "$EXT" 2>/dev/null || log_info "ICMP rule from local VPC already exists"
+    
+    # Get local cluster security group
     LOCAL_CLUSTER_SG=$(aws eks describe-cluster \
         --name "$CLUSTER_NAME" \
         --query 'cluster.resourcesVpcConfig.clusterSecurityGroupId' \
@@ -593,29 +734,47 @@ configure_security_groups() {
         --profile "$INT")
     
     if resource_exists "$LOCAL_CLUSTER_SG"; then
-        log_info "Local Cluster Security Group: $LOCAL_CLUSTER_SG"
+        log_info "Found EKS Cluster Security Group: $LOCAL_CLUSTER_SG"
         
-        # Add ingress rules to local cluster SG
+        # Allow specific TCP ports from external VPC CIDR
+        log_info "Configuring ingress rules for cluster security group from external VPC..."
+        
+        aws ec2 authorize-security-group-ingress \
+            --group-id "$LOCAL_CLUSTER_SG" \
+            --protocol tcp \
+            --port 80 \
+            --cidr "$EXTERNAL_CIDR" \
+            --profile "$INT" 2>/dev/null || log_info "TCP port 80 rule already exists in cluster SG"
+        
+        aws ec2 authorize-security-group-ingress \
+            --group-id "$LOCAL_CLUSTER_SG" \
+            --protocol tcp \
+            --port 8080 \
+            --cidr "$EXTERNAL_CIDR" \
+            --profile "$INT" 2>/dev/null || log_info "TCP port 8080 rule already exists in cluster SG"
+        
         aws ec2 authorize-security-group-ingress \
             --group-id "$LOCAL_CLUSTER_SG" \
             --protocol tcp \
             --port 443 \
             --cidr "$EXTERNAL_CIDR" \
-            --profile "$INT" 2>/dev/null || log_info "External HTTPS rule already exists in local SG"
+            --profile "$INT" 2>/dev/null || log_info "TCP port 443 rule already exists in cluster SG"
         
         aws ec2 authorize-security-group-ingress \
             --group-id "$LOCAL_CLUSTER_SG" \
             --protocol tcp \
-            --port 15008 \
+            --port 15000-15200 \
             --cidr "$EXTERNAL_CIDR" \
-            --profile "$INT" 2>/dev/null || log_info "External HBONE rule already exists in local SG"
+            --profile "$INT" 2>/dev/null || log_info "TCP port 15000-15200 rule already exists in cluster SG"
         
         aws ec2 authorize-security-group-ingress \
             --group-id "$LOCAL_CLUSTER_SG" \
-            --protocol tcp \
-            --port 15012 \
+            --protocol icmp \
+            --port -1 \
             --cidr "$EXTERNAL_CIDR" \
-            --profile "$INT" 2>/dev/null || log_info "External XDS rule already exists in local SG"
+            --profile "$INT" 2>/dev/null || log_info "ICMP rule from external VPC already exists in cluster SG"
+    else
+        log_warn "Could not find EKS cluster security group"
     fi
     
     export EXTERNAL_SG LOCAL_CLUSTER_SG
@@ -625,27 +784,17 @@ configure_security_groups() {
 setup_iam_roles() {
     log_info "=== Setting Up IAM Roles ==="
     
-    # Create trust policy for external accounts
-    cat > /tmp/external-account-trust-policy.json <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-role"
-            },
-            "Action": [
-                "sts:AssumeRole",
-                "sts:TagSession"
-            ]
-        }
-    ]
-}
-EOF
+    # Get OIDC provider for EKS cluster
+    local oidc_provider=$(aws eks describe-cluster \
+        --name "$CLUSTER_NAME" \
+        --query 'cluster.identity.oidc.issuer' \
+        --output text \
+        --profile "$INT" | sed 's|https://||')
     
-    # Create istiod trust policy
-    cat > /tmp/istiod-trust-policy.json <<'EOF'
+    log_info "OIDC Provider: $oidc_provider"
+    
+    # Create trust policy for istiod-role
+    cat > /tmp/istiod-trust-policy.json <<EOF
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -671,62 +820,56 @@ EOF
             --assume-role-policy-document file:///tmp/istiod-trust-policy.json \
             --profile "$INT" >/dev/null
         log_info "Created istiod-role in local account"
-        
-        # Wait for IAM role to propagate (required for it to be used as a principal)
-        log_info "Waiting for istiod-role to propagate in AWS IAM..."
-        sleep 10
-        
-        # Verify role exists and is accessible
-        local retries=0
-        while [ $retries -lt 6 ]; do
-            if aws iam get-role --role-name istiod-role --profile "$INT" >/dev/null 2>&1; then
-                log_info "Role propagation verified"
-                break
-            fi
-            retries=$((retries + 1))
-            log_info "Waiting for role propagation (attempt $retries/6)..."
-            sleep 5
-        done
     else
         log_info "istiod-role already exists in local account"
     fi
     
+    # Create trust policy for istiod-local
+    cat > /tmp/local-account-trust-policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-role"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+EOF
+    
+    # Create trust policy for istiod-external
+    cat > /tmp/external-account-trust-policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-role"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+EOF
+    
     # Create istiod-local role in local account
     role_exists=$(aws iam get-role --role-name istiod-local --profile "$INT" 2>/dev/null || echo "")
     if [ -z "$role_exists" ]; then
-        # Retry logic for role creation (handles IAM propagation delays)
-        local retries=0
-        local max_retries=5
-        local created=false
+        aws iam create-role \
+            --role-name istiod-local \
+            --assume-role-policy-document file:///tmp/local-account-trust-policy.json \
+            --profile "$INT" >/dev/null
+        log_info "Created istiod-local role in local account"
         
-        while [ $retries -lt $max_retries ] && [ "$created" = false ]; do
-            if aws iam create-role \
-                --role-name istiod-local \
-                --assume-role-policy-document file:///tmp/external-account-trust-policy.json \
-                --profile "$INT" >/dev/null 2>&1; then
-                log_info "Created istiod-local role in local account"
-                created=true
-            else
-                retries=$((retries + 1))
-                if [ $retries -lt $max_retries ]; then
-                    log_warn "Failed to create istiod-local (attempt $retries/$max_retries), retrying in 10 seconds..."
-                    log_warn "This is often due to IAM propagation delays"
-                    sleep 10
-                else
-                    log_error "Failed to create istiod-local after $max_retries attempts"
-                    log_error "The istiod-role may not have propagated yet"
-                    return 1
-                fi
-            fi
-        done
-        
-        if [ "$created" = true ]; then
-            aws iam attach-role-policy \
-                --role-name istiod-local \
-                --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
-                --profile "$INT"
-            log_info "Attached AmazonECS_FullAccess to istiod-local"
-        fi
+        aws iam attach-role-policy \
+            --role-name istiod-local \
+            --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
+            --profile "$INT"
+        log_info "Attached AmazonECS_FullAccess to istiod-local"
     else
         log_info "istiod-local role already exists in local account"
     fi
