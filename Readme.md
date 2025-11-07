@@ -606,49 +606,56 @@ ecs-istio-multi-account-3      echo-service   HBONE
 
 **🎉 If you see HBONE protocol, your services are enrolled in the mesh with automatic mTLS!**
 
----
-
 ## Step 7: Test Cross-Account Communication
 
-Deploy a test pod in EKS to test service mesh connectivity:
+**Deploy Test Pods in the EKS Cluster**
+
+To test the setup, deploy `shell` and `echo` applications in the default namespace of the previously created EKS cluster:
 
 ```bash
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: eks-shell
-  namespace: default
-  labels:
-    app: eks-shell
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: eks-shell
-  template:
-    metadata:
-      labels:
-        app: eks-shell
-        istio.io/dataplane-mode: ambient
-    spec:
-      containers:
-      - name: eks-shell
-        image: curlimages/curl:latest
-        command: ["/bin/sh", "-c", "sleep 3600"]
-EOF
+# Label the default namespace with ambient mode
+kubectl label namespace default istio.io/dataplane-mode=ambient
+
+# Deploy the test applications
+kubectl apply -f manifests/eks-echo.yaml
+kubectl apply -f manifests/eks-shell.yaml
+```
+
+Confirm communication between an EKS pod and an EKS service:
+
+```bash
+kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- curl eks-echo:8080
+```
+
+Expected output:
+
+```outputkubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- curl echo-service.ecs.local:8080
+ServiceVersion=
+ServicePort=8080
+Host=eks-echo:8080
+URL=/
+Method=GET
+Proto=HTTP/1.1
+IP=192.168.116.225
+RequestHeader=Accept:*/*
+RequestHeader=User-Agent:curl/8.10.1
+Hostname=eks-echo-5484d5bd99-hlk6w
 ```
 
 **Test connectivity to local cluster services:**
 
 ```bash
 # Test cluster 1 (local)
-kubectl exec deployment/eks-shell -- \
-  curl -s echo-service.ecs-istio-multi-account-1.ecs.local:8080
+kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
+  curl echo-service.ecs-${CLUSTER_NAME}-1.ecs.local:8080
 
 # Test cluster 2 (local)
-kubectl exec deployment/eks-shell -- \
-  curl -s echo-service.ecs-istio-multi-account-2.ecs.local:8080
+kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
+  curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080
+
+# Test cluster 3 (external)
+kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
+  curl echo-service.ecs-${CLUSTER_NAME}-3.ecs.external:8080
 ```
 
 **Test cross-account connectivity to external cluster:**
