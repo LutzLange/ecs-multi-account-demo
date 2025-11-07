@@ -282,7 +282,7 @@ spec:
       tag: ${ISTIO_TAG}
       network: eks
     license:
-      value: ${GLOO_LICENSE_KEY}
+      value: ${GLOO_MESH_LICENSE_KEY}
     cni:
       ambient:
         dnsCapture: true              # 👈 Capture DNS for service discovery
