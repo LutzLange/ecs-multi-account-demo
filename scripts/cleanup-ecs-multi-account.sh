@@ -331,7 +331,7 @@ cleanup_ecs() {
     
     # Deregister task definitions
     log_info "Deregistering task definitions..."
-    for task_family in shell-task-definition echo-task-definition; do
+    for task_family in shell-task-definition echo-task-definition echo-service-definition; do
         local task_arns=$(aws ecs list-task-definitions \
             --family-prefix "$task_family" \
             --profile "$profile" \
