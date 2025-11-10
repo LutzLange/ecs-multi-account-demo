@@ -16,7 +16,7 @@ This guide demonstrates **Istio Ambient service mesh** across multiple AWS ECS c
 
 Deploy a single Istio control plane in an EKS cluster that manages ECS services across multiple AWS accounts with:
 
-- 🔗 **Automatic Service Discovery** across clusters and accounts
+- 🔗 **Automatic Service Discovery** across clustaws organizations describe-organization --profile istioers and accounts
 - 🔐 **Zero-Trust mTLS** without sidecars (Ambient mode)
 - 🛡️ **Unified Security Policies** (L4 and L7)
 - 🌐 **Seamless Cross-Account Communication**
@@ -414,6 +414,8 @@ IAM Setup Complete!
 ### Step 4.2: Deploy 3 ECS Clusters
 
 Deploy ECS clusters with services in both accounts:
+
+Note: If this script runs into errors, it can help to wait a while (~20-30 min) and try again. IAM resources needs some time to propagate.
 
 ```bash
 ./scripts/deploy-ecs-multi-account-3-clusters.sh
