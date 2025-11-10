@@ -834,7 +834,10 @@ EOF
             "Principal": {
                 "AWS": "arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-role"
             },
-            "Action": "sts:AssumeRole"
+            "Action": [
+                "sts:AssumeRole",
+                "sts:TagSession"
+            ]
         }
     ]
 }
@@ -850,7 +853,10 @@ EOF
             "Principal": {
                 "AWS": "arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-role"
             },
-            "Action": "sts:AssumeRole"
+            "Action": [
+                "sts:AssumeRole",
+                "sts:TagSession"
+            ]
         }
     ]
 }
