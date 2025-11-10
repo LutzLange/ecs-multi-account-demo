@@ -859,17 +859,28 @@ EOF
     # Create istiod-local role in local account
     role_exists=$(aws iam get-role --role-name istiod-local --profile "$INT" 2>/dev/null || echo "")
     if [ -z "$role_exists" ]; then
-        aws iam create-role \
+        log_info "Creating istiod-local role in local account..."
+        if aws iam create-role \
             --role-name istiod-local \
             --assume-role-policy-document file:///tmp/local-account-trust-policy.json \
-            --profile "$INT" >/dev/null
-        log_info "Created istiod-local role in local account"
-        
-        aws iam attach-role-policy \
-            --role-name istiod-local \
-            --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
-            --profile "$INT"
-        log_info "Attached AmazonECS_FullAccess to istiod-local"
+            --profile "$INT" 2>&1 | tee /tmp/istiod-local-creation.log; then
+            log_info "✓ Created istiod-local role in local account"
+            
+            if aws iam attach-role-policy \
+                --role-name istiod-local \
+                --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
+                --profile "$INT" 2>&1; then
+                log_info "✓ Attached AmazonECS_FullAccess to istiod-local"
+            else
+                log_error "Failed to attach policy to istiod-local"
+                return 1
+            fi
+        else
+            log_error "Failed to create istiod-local role"
+            log_error "Error details in /tmp/istiod-local-creation.log"
+            cat /tmp/istiod-local-creation.log
+            return 1
+        fi
     else
         log_info "istiod-local role already exists in local account"
     fi
@@ -877,6 +888,7 @@ EOF
     # Create istiod-external role in external account
     role_exists=$(aws iam get-role --role-name istiod-external --profile "$EXT" 2>/dev/null || echo "")
     if [ -z "$role_exists" ]; then
+        log_info "Creating istiod-external role in external account..."
         # Retry logic for role creation (handles IAM propagation delays)
         local retries=0
         local max_retries=5
@@ -886,8 +898,8 @@ EOF
             if aws iam create-role \
                 --role-name istiod-external \
                 --assume-role-policy-document file:///tmp/external-account-trust-policy.json \
-                --profile "$EXT" >/dev/null 2>&1; then
-                log_info "Created istiod-external role in external account"
+                --profile "$EXT" 2>&1 | tee /tmp/istiod-external-creation-$retries.log; then
+                log_info "✓ Created istiod-external role in external account"
                 created=true
             else
                 retries=$((retries + 1))
@@ -898,17 +910,22 @@ EOF
                 else
                     log_error "Failed to create istiod-external after $max_retries attempts"
                     log_error "The istiod-role may not have propagated yet"
+                    log_error "See logs: /tmp/istiod-external-creation-*.log"
                     return 1
                 fi
             fi
         done
         
         if [ "$created" = true ]; then
-            aws iam attach-role-policy \
+            if aws iam attach-role-policy \
                 --role-name istiod-external \
                 --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
-                --profile "$EXT"
-            log_info "Attached AmazonECS_FullAccess to istiod-external"
+                --profile "$EXT" 2>&1; then
+                log_info "✓ Attached AmazonECS_FullAccess to istiod-external"
+            else
+                log_error "Failed to attach policy to istiod-external"
+                return 1
+            fi
         fi
     else
         log_info "istiod-external role already exists in external account"
@@ -948,26 +965,42 @@ EOF
     local policy_exists=$(aws iam get-policy --policy-arn "$policy_arn" --profile "$INT" 2>/dev/null || echo "")
     
     if [ -z "$policy_exists" ]; then
-        aws iam create-policy \
+        log_info "Creating istiod-permission-policy..."
+        if aws iam create-policy \
             --policy-document file:///tmp/istiod-permission-policy.json \
             --policy-name istiod-permission-policy \
-            --profile "$INT" >/dev/null
-        log_info "Created istiod-permission-policy"
+            --profile "$INT" 2>&1 | tee /tmp/policy-creation.log; then
+            log_info "✓ Created istiod-permission-policy"
+        else
+            log_error "Failed to create istiod-permission-policy"
+            log_error "Error details in /tmp/policy-creation.log"
+            cat /tmp/policy-creation.log
+            return 1
+        fi
     else
         log_info "istiod-permission-policy already exists"
         # Update policy with new version
-        aws iam create-policy-version \
+        if aws iam create-policy-version \
             --policy-arn "$policy_arn" \
             --policy-document file:///tmp/istiod-permission-policy.json \
             --set-as-default \
-            --profile "$INT" 2>/dev/null || log_info "Policy already up to date"
+            --profile "$INT" 2>&1; then
+            log_info "✓ Updated istiod-permission-policy"
+        else
+            log_info "Policy already up to date or update failed (non-critical)"
+        fi
     fi
     
     # Attach policy to istiod-role
-    aws iam attach-role-policy \
+    log_info "Attaching policy to istiod-role..."
+    if aws iam attach-role-policy \
         --role-name istiod-role \
         --policy-arn "$policy_arn" \
-        --profile "$INT" 2>/dev/null || log_info "Policy already attached to istiod-role"
+        --profile "$INT" 2>&1; then
+        log_info "✓ Policy attached to istiod-role"
+    else
+        log_info "Policy already attached to istiod-role"
+    fi
     
     # Update pod identity association
     local assoc_id=$(aws eks list-pod-identity-associations \
@@ -986,6 +1019,39 @@ EOF
     else
         log_warn "No pod identity association found - you may need to create one after Istio installation"
     fi
+    
+    # Verify all required roles exist
+    log_info "=== Verifying IAM Roles ==="
+    local verification_failed=false
+    
+    if aws iam get-role --role-name istiod-role --profile "$INT" >/dev/null 2>&1; then
+        log_info "✓ istiod-role exists in local account"
+    else
+        log_error "✗ istiod-role NOT found in local account"
+        verification_failed=true
+    fi
+    
+    if aws iam get-role --role-name istiod-local --profile "$INT" >/dev/null 2>&1; then
+        log_info "✓ istiod-local exists in local account"
+    else
+        log_error "✗ istiod-local NOT found in local account"
+        verification_failed=true
+    fi
+    
+    if aws iam get-role --role-name istiod-external --profile "$EXT" >/dev/null 2>&1; then
+        log_info "✓ istiod-external exists in external account"
+    else
+        log_error "✗ istiod-external NOT found in external account"
+        verification_failed=true
+    fi
+    
+    if [ "$verification_failed" = true ]; then
+        log_error "IAM role verification failed - some roles are missing"
+        log_error "Please check the error messages above"
+        return 1
+    fi
+    
+    log_info "✓ All IAM roles verified successfully"
     
     export LOCAL_ROLE="arn:aws:iam::${LOCAL_ACCOUNT}:role/istiod-local"
     export EXTERNAL_ROLE="arn:aws:iam::${EXTERNAL_ACCOUNT}:role/istiod-external"
