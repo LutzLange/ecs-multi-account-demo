@@ -76,6 +76,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 - ✅ eksctl (if creating a new EKS cluster)
 - ✅ istioctl with ECS support from Solo.io
 - ✅ jq for JSON processing
+https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redirect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
 - ✅ Gloo Mesh license key from Solo.io
 
 ### Required AWS Resources
@@ -164,6 +165,7 @@ This section creates all required AWS infrastructure using an automated, idempot
 ## Run Infrastructure Setup
 
 Execute the automated setup script:
+https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redirect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
 
 ```bash
 ./scripts/setup-ecs-multi-account.sh
@@ -207,7 +209,8 @@ This loads variables including:
 ```bash
 echo "Local VPC: $LOCAL_VPC"
 echo "External VPC: $EXTERNAL_VPC"
-echo "Peering ID: $PEERING_ID"
+echo "Peering ID: $PEERING_ID"https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redirect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
+
 echo "Local Role: $LOCAL_ROLE"
 echo "External Role: $EXTERNAL_ROLE"
 ```
@@ -512,15 +515,32 @@ For each service, `istioctl` automatically:
 
 **Expected output:**
 ```
-Adding services for cluster 1 (local)...
-  ✓ shell-task added successfully
-  ✓ echo-service added successfully
+...
+=============================================
+  All Services Added to Mesh!
+=============================================
 
-Adding services for cluster 3 (external)...
-  ✓ shell-task added successfully
-  ✓ echo-service added successfully
+Services added:
+  LOCAL ACCOUNT:
+    ecs-two-accounts-1: shell-task, echo-service
+    ecs-two-accounts-2: shell-task, echo-service
+  EXTERNAL ACCOUNT:
+    ecs-two-accounts-3: shell-task, echo-service
 
-All Services Added to Mesh!
+Verify with:
+  ./istioctl ztunnel-config services | grep ecs-two-accounts
+  ./istioctl ztunnel-config workloads | grep ecs-two-accounts
+
+Expected service DNS names:
+  Local Cluster 1:
+    - shell-task.ecs-two-accounts-1.ecs.local:80
+    - echo-service.ecs-two-accounts-1.ecs.local:8080
+  Local Cluster 2:
+    - shell-task.ecs-two-accounts-2.ecs.local:80
+    - echo-service.ecs-two-accounts-2.ecs.local:8080
+  External Cluster 3:
+    - shell-task.ecs-two-accounts-3.ecs.external:80
+    - echo-service.ecs-two-accounts-3.ecs.external:8080
 ```
 
 ---
