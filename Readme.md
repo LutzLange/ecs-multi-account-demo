@@ -687,7 +687,7 @@ Expected output:
 ```bash
 # Test cluster 2 (local)
 kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080 | jq
+  curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080 | jq '{hostname: .host.hostname, ip: .host.ip}'
 ```
 
 Expected output:
@@ -695,43 +695,8 @@ Expected output:
 {
   "host": {
     "hostname": "echo-service.ecs-two-accounts-2.ecs.local",
-    "ip": "::ffff:192.168.146.57",
-    "ips": []
-  },
-  "http": {
-    "method": "GET",
-    "baseUrl": "",
-    "originalUrl": "/",
-    "protocol": "http"
-  },
-  "request": {
-    "params": {
-      "0": "/"
-    },
-    "query": {},
-    "cookies": {},
-    "body": {},
-    "headers": {
-      "host": "echo-service.ecs-two-accounts-2.ecs.local:8080",
-      "user-agent": "curl/8.17.0",
-      "accept": "*/*"
-    }
-  },
-  "environment": {
-    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-    "NODE_VERSION": "20.11.0",
-    "YARN_VERSION": "1.22.19",
-    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/credentials/08fe1900-36de-43ad-970e-36098108972d",
-    "AWS_EXECUTION_ENV": "AWS_ECS_FARGATE",
-    "AWS_REGION": "eu-central-1",
-    "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/8daba5cff6b64eb687354890f3857c80-3193413934",
-    "AWS_DEFAULT_REGION": "eu-central-1",
-    "ECS_AGENT_URI": "http://169.254.170.2/api/8daba5cff6b64eb687354890f3857c80-3193413934",
-    "ECS_CONTAINER_METADATA_URI_V4": "http://169.254.170.2/v4/8daba5cff6b64eb687354890f3857c80-3193413934",
-    "HOSTNAME": "ip-192-168-146-57.eu-central-1.compute.internal",
-    "PORT": "8080",
-    "HOME": "/root"
-  }
+    "ip": "::ffff:192.168.146.57"
+}
 ```
 
 **Test cross-account connectivity to external cluster:**
