@@ -1,10 +1,9 @@
-**WORK in progress 7-Nov-2025**
+**WORK in progress 8-Nov-2025**
 
 This should work up to the policy section.
 
 TODO: 
 - check connectivity section
-- run through from clean environment top to bottom
 - check and improve policy section
 - update diagram
 
@@ -721,7 +720,7 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 - All traffic is automatically encrypted with mTLS
 
 
-# 7-Nov-25 tested until this line with success
+# 8-Nov-25 tested until this line with success
 
 ----
 **untested area**
