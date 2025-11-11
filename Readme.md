@@ -1,4 +1,4 @@
-**WORK in progress 8-Nov-2025**
+**WORK in progress 11-Nov-2025**
 
 This should work up to the policy section.
 
@@ -87,7 +87,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 - ✅ eksctl (if creating a new EKS cluster)
 - ✅ istioctl with ECS support from Solo.io
 - ✅ jq for JSON processing
-https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redirect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
+https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redi- run through from clean environment top to bottomrect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
 - ✅ Gloo Mesh license key from Solo.io
 
 ### Required AWS Resources
@@ -720,7 +720,7 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 - All traffic is automatically encrypted with mTLS
 
 
-# 8-Nov-25 tested until this line with success
+# 11-Nov-25 tested until this line with success
 
 ----
 **untested area**
