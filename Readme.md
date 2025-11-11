@@ -99,7 +99,7 @@ export EXT=$EXTERNAL_ACCOUNT_PROFILE
 
 # AWS Region and Cluster Configuration
 export AWS_REGION=us-east-2
-export CLUSTER_NAME=istio-multi-account
+export CLUSTER_NAME=two-account
 export OWNER_NAME=$(whoami)
 
 # EKS Configuration
@@ -426,9 +426,9 @@ Note: If this script runs into errors, it can help to wait a while (~20-30 min) 
 
 **What this creates:**
 - 3 ECS clusters:
-  - `ecs-istio-multi-account-1` (local account)
-  - `ecs-istio-multi-account-2` (local account)
-  - `ecs-istio-multi-account-3` (external account)
+  - `ecs-two-accounts-1` (local account)
+  - `ecs-two-accounts-2` (local account)
+  - `ecs-two-accounts-3` (external account)
 - 2 services per cluster:
   - `shell-task` - curl container for testing
   - `echo-service` - HTTP echo server on port 8080
@@ -475,7 +475,7 @@ For each ECS cluster, creates a namespace like:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ecs-istio-multi-account-1
+  name: ecs-two-accounts-1
   labels:
     istio.io/dataplane-mode: ambient    # 👈 Enables Ambient mode!
 ```
@@ -490,9 +490,9 @@ kubectl get ns | grep ecs-
 
 Expected:
 ```
-ecs-istio-multi-account-1   Active   1m
-ecs-istio-multi-account-2   Active   1m
-ecs-istio-multi-account-3   Active   1m
+ecs-two-accounts-1   Active   1m
+ecs-two-accounts-2   Active   1m
+ecs-two-accounts-3   Active   1m
 ```
 
 ### Step 5.2: Enroll Services in the Mesh
@@ -550,35 +550,34 @@ Expected service DNS names:
 Check that all services are discovered:
 
 ```bash
-./istioctl ztunnel-config services
+./istioctl ztunnel-config services | grep $CLUSTER_NAME
 ```
 
 **Expected output:**
 ```
-NAMESPACE                      NAME           ADDRESS      
-ecs-istio-multi-account-1      shell-task     10.0.1.100   
-ecs-istio-multi-account-1      echo-service   10.0.1.101   
-ecs-istio-multi-account-2      shell-task     10.0.2.100   
-ecs-istio-multi-account-2      echo-service   10.0.2.101   
-ecs-istio-multi-account-3      shell-task     10.1.1.100   
-ecs-istio-multi-account-3      echo-service   10.1.1.101   
+NAMESPACE          SERVICE NAME                                                          SERVICE VIP           WAYPOINT ENDPOINTS
+ecs-two-accounts-1 ecs-service-253915036081-eu-central-1-ecs-two-accounts-1-echo-service 240.240.0.3,2001:2::3 None     1/1
+ecs-two-accounts-1 ecs-service-253915036081-eu-central-1-ecs-two-accounts-1-shell-task   240.240.0.4,2001:2::4 None     1/1
+ecs-two-accounts-2 ecs-service-253915036081-eu-central-1-ecs-two-accounts-2-echo-service 240.240.0.1,2001:2::1 None     1/1
+ecs-two-accounts-2 ecs-service-253915036081-eu-central-1-ecs-two-accounts-2-shell-task   240.240.0.2,2001:2::2 None     1/1
+ecs-two-accounts-3 ecs-service-360946914414-eu-central-1-ecs-two-accounts-3-echo-service 240.240.0.5,2001:2::5 None     1/1
+ecs-two-accounts-3 ecs-service-360946914414-eu-central-1-ecs-two-accounts-3-shell-task   240.240.0.6,2001:2::6 None     1/1
 ```
 
 **Check workloads are using HBONE** (mesh enrolled):
 
 ```bash
-./istioctl ztunnel-config workloads
+./istioctl ztunnel-config workloads | grep -E "$CLUSTER_NAME" | awk '{ print $2 "\t" $3 "\t" $5 "\t" $6; }'
 ```
 
 **Expected output:**
 ```
-NAMESPACE                      NAME           PROTOCOL    
-ecs-istio-multi-account-1      shell-task     HBONE    👈 Meshed!
-ecs-istio-multi-account-1      echo-service   HBONE    
-ecs-istio-multi-account-2      shell-task     HBONE    
-ecs-istio-multi-account-2      echo-service   HBONE    
-ecs-istio-multi-account-3      shell-task     HBONE    
-ecs-istio-multi-account-3      echo-service   HBONE    
+ecs-task-253915036081-eu-central-1-ecs-two-accounts-1-36065e1b9c824ca88f9442719e5745bf	192.168.159.77	HBONE	
+ecs-task-253915036081-eu-central-1-ecs-two-accounts-1-f54cb81908f54e638137792de16064c3	192.168.187.39	HBONE	
+ecs-task-253915036081-eu-central-1-ecs-two-accounts-2-8daba5cff6b64eb687354890f3857c80	192.168.146.57	HBONE	
+ecs-task-253915036081-eu-central-1-ecs-two-accounts-2-f49b79dce5214d049755e85331997b38	192.168.164.14	HBONE	
+ecs-task-360946914414-eu-central-1-ecs-two-accounts-3-8eceb931745c4676ad28f83ac490e561	10.1.3.168	HBONE	
+ecs-task-360946914414-eu-central-1-ecs-two-accounts-3-f07d31afedc742efa2d06d3c3f3dddd1	10.1.3.188	HBONE
 ```
 
 **🎉 If you see HBONE protocol, your services are enrolled in the mesh with automatic mTLS!**
