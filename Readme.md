@@ -737,7 +737,7 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: deny-all
-  namespace: ecs-istio-multi-account-1
+  namespace: ecs-${CLUSTER_NAME}-1
 spec:
   {}  # Empty spec = deny all
 ---
@@ -745,7 +745,7 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow-eks-to-echo
-  namespace: ecs-istio-multi-account-1
+  namespace: ecs-${CLUSTER_NAME}-1
 spec:
   action: ALLOW
   rules:
@@ -763,8 +763,11 @@ EOF
 ```bash
 # Should SUCCEED (from default namespace)
 kubectl exec deployment/eks-shell -- \
-  curl echo-service.ecs-istio-multi-account-1.ecs.local:8080
+  curl echo-service.ecs-${CLUSTER_NAME}-1.ecs.local:8080 \
+  | jq '{hostname: .host.hostname, ip: .host.ip}'
+```
 
+```bash
 # From shell-task in same cluster - should FAIL
 # (requires accessing ECS task console via AWS)
 ```
