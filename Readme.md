@@ -757,7 +757,7 @@ kubectl exec deployment/eks-shell -- \
 
 ```bash
 # From shell-task in same cluster - should FAIL
-# (requires accessing ECS task console via AWS)
+scripts/test/call-from-ecs.sh tests/ecs-to-ecs.txt ecs-${CLUSTER_NAME}-1 
 ```
 
 ### L7 Authorization Policy (Application-Level)
