@@ -15,19 +15,7 @@ This guide demonstrates **Istio Ambient service mesh** across multiple AWS ECS c
 
 Deploy a single Istio control plane in an EKS cluster that manages ECS services across multiple AWS accounts with:
 
-- 🔗 **Automatic Service Discovery** across clustaws organizations describe-organization --profile istioers kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-1.ecs.local:8080
-
-# Test cluster 2 (local)
-kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080
-kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-1.ecs.local:8080
-
-# Test cluster 2 (local)
-kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].metadata.name}") -- \
-  curl echo-service.ecs-${CLUSTER_NAME}-2.ecs.local:8080
-and accounts
+- 🔗 **Automatic Service Discovery** across clustaws organizations and accounts
 - 🔐 **Zero-Trust mTLS** without sidecars (Ambient mode)
 - 🛡️ **Unified Security Policies** (L4 and L7)
 - 🌐 **Seamless Cross-Account Communication**
