@@ -782,7 +782,25 @@ kubectl exec deployment/eks-shell -- \
 
 ```bash
 # From shell-task in same cluster - should FAIL
-scripts/test/call-from-ecs.sh tests/ecs-to-ecs.txt ecs-${CLUSTER_NAME}-1 
+scripts/test/call-from-ecs.sh echo-service.ecs-two-accounts-1.ecs.local:8080
+```
+
+Expected output
+```bash
+Using origin cluster from environment: ecs-two-accounts-1
+Using region from environment: eu-central-1
+Using profile from environment: internal
+Retrieving task ID from cluster: ecs-two-accounts-1
+Using Task ID: 5ad596f1e8da402da260b6a46c8f4b98
+
+Target URL: echo-service.ecs-two-accounts-1.ecs.local:8080
+
+=====================================
+Running: ALL_PROXY=socks5h://127.0.0.1:15080 curl echo-service.ecs-two-accounts-1.ecs.local:8080
+=====================================
+curl: (56) Recv failure: Connection reset by peer
+
+Command completed
 ```
 
 ### L7 Authorization Policy (Application-Level)
