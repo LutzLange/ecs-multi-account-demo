@@ -310,7 +310,7 @@ EOF
 **Key Service Mesh Settings Explained:**
 
 | Setting | Purpose |
-|---------|---------|echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
+|---------|---------|
 | `profile: ambient` | Uses ztunnel instead of sidecars - simpler, more efficient |
 | `dnsCapture: true` | Intercepts DNS queries for seamless service discovery |
 | `accounts: [...]` | Tells Istiod where to discover ECS tasks (multi-account) |
