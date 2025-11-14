@@ -4,8 +4,6 @@ This should work up to the policy section.
 
 TODO: 
 - check connectivity section
-- ALL_PROXY var needs to be included on the shell task to point to ztunnel
-- istioctl add-service needs to be exposed in the guide
 - connectivity test between ecs shell and ecs echo before applying policy
 - improve call-from-ecs.sh to display with jq and only response and host.
 - check and improve policy section
@@ -498,7 +496,14 @@ ecs-two-accounts-3   Active   1m
 
 ### Step 5.2: Enroll Services in the Mesh
 
-Add all ECS services to the mesh:
+Next we will use istioctl to add service to the mesh.
+
+You could do this 1 by one for each of the echo and shell tasks like this:
+```bash
+./istioctl ecs add-service shell-task --cluster ecs-${CLUSTER_NAME}-1 --namespace ecs-${CLUSTER_NAME}-1 --external
+```
+
+Or use this script to do it automatically :
 
 ```bash
 ./scripts/add-services-to-mesh-3-clusters.sh
@@ -511,7 +516,7 @@ For each service, `istioctl` automatically:
 2. 🔐 Fetches Istiod root certificate
 3. 📝 Creates `ServiceEntry` (tells Istio about the service)
 4. 📍 Creates `WorkloadEntry` (tells Istio where tasks are running)
-5. 🔄 Updates ECS task definition (adds mesh configuration)
+5. 🔄 Updates ECS task definition to add ztunnel component to attach ECS task to the mesh.
 6. 🚀 Redeploys task with mesh integration
 
 **Expected output:**
