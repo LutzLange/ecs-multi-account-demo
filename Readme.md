@@ -85,8 +85,6 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 1. Check out this repository
 2. Create a file in your local checkout directory called ecs-multi-account-env.sh that contains the flollowing values.
 
-Set these variables before starting:
-
 ```bash
 cat << EOF > ecs-multi-account-env.sh
 # AWS Account Information
@@ -121,25 +119,6 @@ aws sso login --profile $EXTERNAL_ACCOUNT_PROFILE
 ```
 
 ---
-# Part 0: EKS cluster and 1st VPN setup in local account
-
-Populate the prepared temaplate with your current values and pass it to `eksctl` to create an AWS EKS cluster for Istio Ambient ECS demo.echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
-
-```bash
-export AWS_PROFILE=$INT
-eval "echo \"$(cat manifests/eks-cluster.yaml)\"" | eksctl create cluster --config-file -
-```
-
-## Deploy Kubernetes Gateway API CRDs
-
-Gateway API is a new set of resources to manage service traffic in a Kubernetes-native way. Here, we're installing the most recent (as of January 2025) version of the Kubernetes Gateway API CRDs, which will be used by Istio for ingress.
-
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml
-```
-
-For more details, refer to the official [Gateway API documentation](https://gateway-api.sigs.k8s.io/guides/) and the Istio [documentation](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/).
-
 # Part 1: ECS & 2nd VPC infrastructure Setup
 
 This section creates all required AWS infrastructure using an automated, idempotent script. The script handles VPC creation, networking, peering, security groups, and IAM roles for Istiod.
@@ -165,9 +144,30 @@ This section creates all required AWS infrastructure using an automated, idempot
 
 ## Run Infrastructure Setup
 
+### Create the EKS cluster and the 1st VPN. 
+
+Populate the prepared temaplate with your current values and pass it to `eksctl` to create an AWS EKS cluster for Istio Ambient ECS demo.echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
+
+```bash
+export AWS_PROFILE=$INT
+eval "echo \"$(cat manifests/eks-cluster.yaml)\"" | eksctl create cluster --config-file -
+```
+
+### Deploy Kubernetes Gateway API CRDs
+
+Gateway API is a new set of resources to manage service traffic in a Kubernetes-native way. Here, we're installing the most recent (as of January 2025) version of the Kubernetes Gateway API CRDs, which will be used by Istio for ingress.
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml
+```
+
+For more details, refer to the official [Gateway API documentation](https://gateway-api.sigs.k8s.io/guides/) and the Istio [documentation](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/).
+
+### Create the 2nd VPC in the external account 
+
 Execute the automated setup script:
 
-```bashecho-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
+```bash
 ./scripts/setup-ecs-multi-account.sh
 ```
 
