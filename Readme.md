@@ -194,7 +194,7 @@ Execute the automated setup script:
 The script saves all created resource IDs to a file:
 
 ```bash
-source /tmp/ecs-multi-account-env.sh
+source ecs-multi-account-env.sh
 ```
 
 This loads variables including:
@@ -319,7 +319,7 @@ EOF
 ```
 ✔ Istio core installed ⛵️
 ✔ Istiod installed 🧠
-✔ CNI installed 🪢
+✔ CNI installed 🪢- istioctl add-service needs to be exposed in the guide
 ✔ Ztunnel installed 🔒
 ✔ Installation complete
 ```
