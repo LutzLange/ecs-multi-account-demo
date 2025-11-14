@@ -437,6 +437,10 @@ Each ECS cluster is tagged with `ecs.solo.io/discovery-enabled=true`. This tag i
 2. Verifies the tag exists on all clusters (even existing ones)
 3. Without this tag, Istiod will not discover your ECS services
 
+**🔴 CRITICAL: ALL_PROXY=socks5h://127.0.0.1:15080**
+
+All ECS Tasks that are required to connect to the mesh need some way to route traffic through the ztunnel container that will be attached to the ECS Tasks. Set ALL_PROXY=socks5h://127.0.0.1:15080 in the task definitions that require outbound mesh connectivity. In this demo case this is done in [shell-task-definition.json](./ecs_definitions/shell-task-definition.json).
+
 **Expected output:**
 ```
 LOCAL ACCOUNT DEPLOYMENT
@@ -794,7 +798,7 @@ Using Task ID: 5ad596f1e8da402da260b6a46c8f4b98
 Target URL: echo-service.ecs-two-accounts-1.ecs.local:8080
 
 =====================================
-Running: ALL_PROXY=socks5h://127.0.0.1:15080 curl echo-service.ecs-two-accounts-1.ecs.local:8080
+        Running: ALL_PROXY=socks5h://127.0.0.1:15080 curl echo-service.ecs-two-accounts-1.ecs.local:8080
 =====================================
 curl: (56) Recv failure: Connection reset by peer
 
