@@ -395,7 +395,7 @@ Now deploy ECS clusters and services using automation scripts. These scripts are
 Create IAM task roles for both accounts:
 
 ```bash
-source ./create-iam-multi-account.sh
+./scripts/create-iam-multi-account.sh
 ```
 
 **What this creates:**
