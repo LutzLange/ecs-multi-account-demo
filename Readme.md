@@ -1,12 +1,11 @@
-**WORK in progress 11-Nov-2025**
+**WORK in progress 14-Nov-2025**
 
 This should work up to the policy section.
 
 TODO: 
 - check connectivity section
 - connectivity test between ecs shell and ecs echo before applying policy
-- improve call-from-ecs.sh to display with jq and only response and host.
-- check and improve policy section
+- check and improve L7 policy section
 - update diagram
 
 # Istio Ambient Multi-Account ECS Integration
@@ -738,11 +737,6 @@ Running: ALL_PROXY=socks5h://127.0.0.1:15080 curl echo-service.ecs-two-accounts-
 Command completed
 ```
 
-# 11-Nov-25 tested until this line with success
-
-----
-**untested area**
-
 ## Step 8: Apply Security Policies
 
 ### L4 Authorization Policy (Network-Level)
@@ -808,6 +802,10 @@ curl: (56) Recv failure: Connection reset by peer
 Command completed
 ```
 
+# 14-Nov-25 tested until this line with success
+
+----
+**untested area**
 ### L7 Authorization Policy (Application-Level)
 
 For HTTP method restrictions, deploy a waypoint proxy:
