@@ -10,6 +10,12 @@
             "image": "curlimages/curl:latest",
             "essential": true,
             "command": ["sleep", "3600"],
+            "environment": [
+                {
+                    "name": "ALL_PROXY",
+                    "value": "socks5h://127.0.0.1:15080"
+                }
+            ],
             "portMappings": [
                 {
                     "containerPort": 80,
