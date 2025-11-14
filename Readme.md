@@ -4,8 +4,6 @@ This should work up to the policy section.
 
 TODO: 
 - clean up env VAR handling 
-- check connectivity section
-- connectivity test between ecs shell and ecs echo before applying policy
 - check and improve L7 policy section
 - update diagram
 
