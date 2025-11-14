@@ -122,7 +122,7 @@ aws sso login --profile $EXTERNAL_ACCOUNT_PROFILE
 ---
 # Part 0: EKS cluster and 1st VPN setup in local account
 
-Populate the prepared temaplate with your current values and pass it to `eksctl` to create an AWS EKS cluster for Istio Ambient ECS demo.
+Populate the prepared temaplate with your current values and pass it to `eksctl` to create an AWS EKS cluster for Istio Ambient ECS demo.echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
 
 ```bash
 export AWS_PROFILE=$INT
@@ -166,7 +166,7 @@ This section creates all required AWS infrastructure using an automated, idempot
 
 Execute the automated setup script:
 
-```bash
+```bashecho-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
 ./scripts/setup-ecs-multi-account.sh
 ```
 
@@ -309,7 +309,7 @@ EOF
 **Key Service Mesh Settings Explained:**
 
 | Setting | Purpose |
-|---------|---------|
+|---------|---------|echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
 | `profile: ambient` | Uses ztunnel instead of sidecars - simpler, more efficient |
 | `dnsCapture: true` | Intercepts DNS queries for seamless service discovery |
 | `accounts: [...]` | Tells Istiod where to discover ECS tasks (multi-account) |
@@ -718,7 +718,7 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 **Test ECS-to-ECS connectivity**
 
 ```bash
-scripts/test/call-from-ecs.sh echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
+scripts/test/call-from-ecs.sh echo-service.ecs-${CLUSTER_NAME}-1.ecs.local:8080
 ```
 
 ```bash
