@@ -82,9 +82,13 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ### Environment Setup
 
+1. Check out this repository
+2. Create a file in your local checkout directory called ecs-multi-account-env.sh that contains the flollowing values.
+
 Set these variables before starting:
 
 ```bash
+cat << EOF > ecs-multi-account-env.sh
 # AWS Account Information
 export LOCAL_ACCOUNT=<your_local_account_id>              # e.g., 123456789012
 export EXTERNAL_ACCOUNT=<your_external_account_id>        # e.g., 987654321098
@@ -106,6 +110,7 @@ export NODE_TYPE=t2.medium
 export HUB=us-east1-docker.pkg.dev/istio-enterprise-private/gme-istio-testing-images
 export ISTIO_TAG=1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122
 export GLOO_MESH_LICENSE_KEY=<your-license-key>
+EOF
 ```
 
 **Login to AWS:**
