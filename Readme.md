@@ -4,6 +4,10 @@ This should work up to the policy section.
 
 TODO: 
 - check connectivity section
+- ALL_PROXY var needs to be included on the shell task to point to ztunnel
+- istioctl add-service needs to be exposed in the guide
+- connectivity test between ecs shell and ecs echo before applying policy
+- improve call-from-ecs.sh to display with jq and only response and host.
 - check and improve policy section
 - update diagram
 
@@ -705,6 +709,29 @@ kubectl exec -it $(kubectl get pods -l app=eks-shell -o jsonpath="{.items[0].met
 - Cross-account communication works seamlessly
 - All traffic is automatically encrypted with mTLS
 
+
+**Test ECS-to-ECS connectivity**
+
+```bash
+scripts/test/call-from-ecs.sh echo-service.ecs-${CLUSTER-NAME}-1.ecs.local:8080
+```
+
+```bash
+Using origin cluster from environment: ecs-two-accounts-1
+Using region from environment: eu-central-1
+Using profile from environment: internal
+Retrieving task ID from cluster: ecs-two-accounts-1
+Using Task ID: 5ad596f1e8da402da260b6a46c8f4b98
+
+Target URL: echo-service.ecs-two-accounts-1.ecs.local:8080
+
+=====================================
+Running: ALL_PROXY=socks5h://127.0.0.1:15080 curl echo-service.ecs-two-accounts-1.ecs.local:8080
+=====================================
+{"host":{"hostname":"echo-service.ecs-two-accounts-1.ecs.local","ip":"::ffff:192.168.159.77","ips":[]},"http":{"method":"GET","baseUrl":"","originalUrl":"/","protocol":"http"},"request":{"params":{"0":"/"},"query":{},"cookies":{},"body":{},"headers":{"host":"echo-service.ecs-two-accounts-1.ecs.local:8080","user-agent":"curl/8.17.0","accept":"*/*"}},"environment":{"PATH":"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","NODE_VERSION":"20.11.0","YARN_VERSION":"1.22.19","AWS_REGION":"eu-central-1","ECS_AGENT_URI":"http://169.254.170.2/api/36065e1b9c824ca88f9442719e5745bf-3193413934","HOSTNAME":"ip-192-168-159-77.eu-central-1.compute.internal","PORT":"8080","AWS_DEFAULT_REGION":"eu-central-1","ECS_CONTAINER_METADATA_URI":"http://169.254.170.2/v3/36065e1b9c824ca88f9442719e5745bf-3193413934","ECS_CONTAINER_METADATA_URI_V4":"http://169.254.170.2/v4/36065e1b9c824ca88f9442719e5745bf-3193413934","AWS_CONTAINER_CREDENTIALS_RELATIVE_URI":"/v2/credentials/ca535694-06c4-4391-b2e6-6e24631899d3","AWS_EXECUTION_ENV":"AWS_ECS_FARGATE","HOME":"/root"}}
+
+Command completed
+```
 
 # 11-Nov-25 tested until this line with success
 
