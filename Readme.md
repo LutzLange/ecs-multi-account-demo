@@ -119,7 +119,7 @@ aws sso login --profile $EXTERNAL_ACCOUNT_PROFILE
 ```
 
 ---
-# Part 1: ECS & 2nd VPC infrastructure Setup
+# Part 1: Infrastructure Setup
 
 This section creates all required AWS infrastructure using an automated, idempotent script. The script handles VPC creation, networking, peering, security groups, and IAM roles for Istiod.
 
