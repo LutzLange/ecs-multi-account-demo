@@ -439,7 +439,7 @@ Each ECS cluster is tagged with `ecs.solo.io/discovery-enabled=true`. This tag i
 
 **🔴 CRITICAL: ALL_PROXY=socks5h://127.0.0.1:15080**
 
-All ECS Tasks that are required to connect to the mesh need some way to route traffic through the ztunnel container that will be attached to the ECS Tasks. Set ALL_PROXY=socks5h://127.0.0.1:15080 in the task definitions that require outbound mesh connectivity. In this demo case this is done in [shell-task-definition.json](./ecs_definitions/shell-task-definition.json).
+All ECS Tasks that are required to connect to the mesh need some way to route traffic through the ztunnel container that will be attached to the ECS Tasks. Set ALL_PROXY=socks5h://127.0.0.1:15080 in the task definitions that require outbound mesh connectivity. In this demo case this is done in [shell-task-definition.json](./ecs_definitions/shell-task-definition.json#L14-L16).
 
 **Expected output:**
 ```
