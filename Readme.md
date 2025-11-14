@@ -61,8 +61,6 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 **Service Discovery**: Istiod automatically discovers ECS tasks across multiple clusters, accounts, and network domains.
 
-**⚠️ CRITICAL REQUIREMENT**: All ECS clusters **must** have the tag `ecs.solo.io/discovery-enabled=true` for Istio to discover them. Without this tag, services will not be added to the mesh.
-
 **HBONE Protocol**: HTTP-Based Overlay Network Encapsulation tunnels mTLS traffic through the east-west gateway, enabling secure cross-account communication.
 
 ---
