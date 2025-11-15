@@ -454,19 +454,164 @@ All ECS Tasks that are required to connect to the mesh need some way to route tr
 
 **Expected output:**
 ```
-LOCAL ACCOUNT DEPLOYMENT
-  ✓ Cluster ecs-istio-multi-account-1 created
-  ✓ Discovery tag verified: ecs.solo.io/discovery-enabled=true
-  ✓ shell-task deployed
-  ✓ echo-service deployed
-...
-EXTERNAL ACCOUNT DEPLOYMENT
-  ✓ Cluster ecs-istio-multi-account-3 created
-  ✓ Discovery tag verified: ecs.solo.io/discovery-enabled=true
-  ✓ shell-task deployed
-  ✓ echo-service deployed
+=============================================
+  ECS Multi-Account 3-Cluster Deployment
+  Final Version - All Improvements
+=============================================
 
-Deployment Complete!
+Log file: deploy-ecs-20251115-151636.log
+Error file: deploy-errors-20251115-151636.log
+
+Loading configuration from: env-config.sh
+
+Starting deployment...
+
+Checking prerequisites...
+✓ aws is available
+✓ jq is available
+
+═══════════════════════════════════════════
+  LOCAL ACCOUNT DEPLOYMENT
+═══════════════════════════════════════════
+
+=============================================
+Deploying to LOCAL account...
+=============================================
+
+Validating environment variables for local account...
+✓ LOCAL_ACCOUNT_PROFILE is set
+✓ AWS_REGION is set
+✓ CLUSTER_NAME is set
+✓ OWNER_NAME is set
+✓ LOCAL_TASK_ROLE_ARN is set
+
+Getting VPC info from EKS cluster...
+  VPC ID: vpc-022aed0658c2e8af1
+  No ECS security group found, creating one...
+  ✓ Created security group: sg-0efda640f90171188
+
+Configuration:
+  Account Type: local
+  Profile: internal
+  Task Role: arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
+  Service Account: ecs-demo-sa-local
+  Subnets: subnet-070efff6fc0eee3ad,subnet-0f8c5819082738a8a,subnet-0a71659a17978ccb9,subnet-0b4d5cef45b99c572,subnet-012deffe16940ecef,subnet-0cdaf52e7132be46f
+  Security Group: sg-0efda640f90171188
+
+✓ Network configuration file created
+
+Step 1/3: Registering task definitions
+  - Checking task definition echo-service-definition...
+    Registering new task definition with family: echo-service-definition...
+    ✓ echo-service-definition registered
+  - Checking task definition shell-task-definition...
+    Registering new task definition with family: shell-task-definition...
+    ✓ shell-task-definition registered
+
+Step 2/3: Creating cluster ecs-escmulti-1
+  Creating cluster...
+  ✓ Cluster ecs-escmulti-1 created
+  - Ensuring Istio discovery tag is set...
+  ✓ Discovery tag verified: ecs.solo.io/discovery-enabled=true
+
+Step 3/3: Deploying services to ecs-escmulti-1
+  - Checking service: echo-service
+    Creating service...
+    ✓ echo-service deployed
+  - Checking service: shell-task
+    Creating service...
+    ✓ shell-task deployed
+
+Step 2/3: Creating cluster ecs-escmulti-2
+  Creating cluster...
+  ✓ Cluster ecs-escmulti-2 created
+  - Ensuring Istio discovery tag is set...
+  ✓ Discovery tag verified: ecs.solo.io/discovery-enabled=true
+
+Step 3/3: Deploying services to ecs-escmulti-2
+  - Checking service: echo-service
+    Creating service...
+    ✓ echo-service deployed
+  - Checking service: shell-task
+    Creating service...
+    ✓ shell-task deployed
+
+Updating EKS security group for ECS access...
+  ✓ EKS security group updated: sg-08b0a3f2aa598e905
+
+═══════════════════════════════════════════
+  EXTERNAL ACCOUNT DEPLOYMENT
+═══════════════════════════════════════════
+
+=============================================
+Deploying to EXTERNAL account...
+=============================================
+
+Validating environment variables for external account...
+✓ EXTERNAL_ACCOUNT_PROFILE is set
+✓ AWS_REGION is set
+✓ CLUSTER_NAME is set
+✓ OWNER_NAME is set
+✓ EXTERNAL_TASK_ROLE_ARN is set
+✓ EXTERNAL_SUBNETS is set
+✓ EXTERNAL_SG is set
+
+
+Configuration:
+  Account Type: external
+  Profile: istio
+  Task Role: arn:aws:iam::360946914414:role/ecs/ambient/eks-ecs-task-role
+  Service Account: ecs-demo-sa-external
+  Subnets: subnet-02466dc4dc38d782a,subnet-03a7f6fb0bdd41ef8,subnet-06bdd26b57e4315c7
+  Security Group: sg-0a45ab5f5631fbe38
+
+✓ Network configuration file created
+
+Step 1/3: Registering task definitions
+  - Checking task definition echo-service-definition...
+    Registering new task definition with family: echo-service-definition...
+    ✓ echo-service-definition registered
+  - Checking task definition shell-task-definition...
+    Registering new task definition with family: shell-task-definition...
+    ✓ shell-task-definition registered
+
+Step 2/3: Creating cluster ecs-escmulti-3
+  Creating cluster...
+  ✓ Cluster ecs-escmulti-3 created
+  - Ensuring Istio discovery tag is set...
+  ✓ Discovery tag verified: ecs.solo.io/discovery-enabled=true
+
+Step 3/3: Deploying services to ecs-escmulti-3
+  - Checking service: echo-service
+    Creating service...
+    ✓ echo-service deployed
+  - Checking service: shell-task
+    Creating service...
+    ✓ shell-task deployed
+
+
+=============================================
+  Deployment Completed Successfully!
+=============================================
+
+Deployment summary:
+
+Checking deployed resources...
+
+  LOCAL: ecs-escmulti-1 - 2 services
+  LOCAL: ecs-escmulti-2 - 2 services
+  EXTERNAL: ecs-escmulti-3 - 2 services
+
+Next steps:
+1. Create Kubernetes namespaces:
+   source ./create-k8s-namespaces-3-clusters.sh
+
+2. Add services to mesh:
+   ./add-services-to-mesh-3-clusters.sh
+
+3. Verify deployment:
+   ./istioctl ztunnel-config services | grep ecs-escmulti
+
 ```
 ---
 
