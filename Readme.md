@@ -379,14 +379,47 @@ Create IAM task roles for both accounts:
 
 **Expected output:**
 ```
+=============================================
+  IAM Role Creation for Multi-Account
+=============================================
+
+Loading configuration from: env-config.sh
+
 Creating IAM resources for LOCAL account...
-  ✓ Role created: arn:aws:iam::xxx:role/eks-ecs-task-role
+Profile: internal
+
+  Creating task role...
+    ✓ Role created: arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
+  Creating task policy...
+    ✓ Policy created: arn:aws:iam::253915036081:policy/ecs/ambient/eks-ecs-task-policy
   ✓ Policy attached to role
 
-Creating IAM resources for EXTERNAL account...
-  ✓ Role created: arn:aws:iam::xxx:role/eks-ecs-task-role
+LOCAL_TASK_ROLE_ARN exported: arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
 
-IAM Setup Complete!
+Creating IAM resources for EXTERNAL account...
+Profile: istio
+
+  Creating task role...
+    ✓ Role created: arn:aws:iam::360946914414:role/ecs/ambient/eks-ecs-task-role
+  Creating task policy...
+    ✓ Policy created: arn:aws:iam::360946914414:policy/ecs/ambient/eks-ecs-task-policy
+  ✓ Policy attached to role
+
+EXTERNAL_TASK_ROLE_ARN exported: arn:aws:iam::360946914414:role/ecs/ambient/eks-ecs-task-role
+
+Saving task role ARNs to configuration...
+✓ Task role ARNs appended to: env-config.sh
+
+=============================================
+  IAM Setup Complete!
+=============================================
+
+Role ARNs have been saved to: env-config.sh
+  LOCAL_TASK_ROLE_ARN=arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
+  EXTERNAL_TASK_ROLE_ARN=arn:aws:iam::360946914414:role/ecs/ambient/eks-ecs-task-role
+
+To load in a new shell, run: source env-config.sh
+
 ```
 
 ### Step 4.2: Deploy 3 ECS Clusters
