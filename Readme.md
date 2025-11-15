@@ -250,6 +250,13 @@ client version: 1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122
 Install Istio with multi-account ECS discovery:
 
 ```bash
+# Source your config to load the variables
+source env-config.sh
+```
+
+Now install istio using the operator:
+
+```bash
 cat <<EOF | ./istioctl install -y -f -
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
@@ -750,25 +757,26 @@ For each service, `istioctl` automatically:
 
 Services added:
   LOCAL ACCOUNT:
-    ecs-two-accounts-1: shell-task, echo-service
-    ecs-two-accounts-2: shell-task, echo-service
+    ecs-escmulti-1: shell-task, echo-service
+    ecs-escmulti-2: shell-task, echo-service
   EXTERNAL ACCOUNT:
-    ecs-two-accounts-3: shell-task, echo-service
+    ecs-escmulti-3: shell-task, echo-service
 
 Verify with:
-  ./istioctl ztunnel-config services | grep ecs-two-accounts
-  ./istioctl ztunnel-config workloads | grep ecs-two-accounts
+  ./istioctl ztunnel-config services | grep ecs-escmulti
+  ./istioctl ztunnel-config workloads | grep ecs-escmulti
 
 Expected service DNS names:
   Local Cluster 1:
-    - shell-task.ecs-two-accounts-1.ecs.local:80
-    - echo-service.ecs-two-accounts-1.ecs.local:8080
+    - shell-task.ecs-escmulti-1.ecs.local:80
+    - echo-service.ecs-escmulti-1.ecs.local:8080
   Local Cluster 2:
-    - shell-task.ecs-two-accounts-2.ecs.local:80
-    - echo-service.ecs-two-accounts-2.ecs.local:8080
+    - shell-task.ecs-escmulti-2.ecs.local:80
+    - echo-service.ecs-escmulti-2.ecs.local:8080
   External Cluster 3:
-    - shell-task.ecs-two-accounts-3.ecs.external:80
-    - echo-service.ecs-two-accounts-3.ecs.external:8080
+    - shell-task.ecs-escmulti-3.ecs.external:80
+    - echo-service.ecs-escmulti-3.ecs.external:8080
+
 ```
 
 ---
