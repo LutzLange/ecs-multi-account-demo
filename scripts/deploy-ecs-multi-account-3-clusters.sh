@@ -18,35 +18,97 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Log file
-LOG_FILE="deploy-ecs-$(date +%Y%m%d-%H%M%S).log"
-ERRORS_FILE="deploy-errors-$(date +%Y%m%d-%H%M%S).log"
+# Default configuration file
+CONFIG_FILE="env-config.sh"
+
+# Debug mode flag
+DEBUG=false
+LOG_FILE=""
+ERRORS_FILE=""
 
 # Track failures
 DEPLOYMENT_FAILED=0
 FAILED_SERVICES=()
 
+# Parse command line options
+parse_options() {
+    local TEMP
+    TEMP=$(getopt -o c: --long config:,debug -n 'deploy-ecs-multi-account-3-clusters.sh' -- "$@")
+    
+    if [ $? != 0 ]; then
+        echo "Usage: $0 [-c config-file] [--debug]" >&2
+        exit 1
+    fi
+    
+    eval set -- "$TEMP"
+    
+    while true; do
+        case "$1" in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --debug)
+                DEBUG=true
+                LOG_FILE="deploy-ecs-$(date +%Y%m%d-%H%M%S).log"
+                ERRORS_FILE="deploy-errors-$(date +%Y%m%d-%H%M%S).log"
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                echo "Internal error!" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Load configuration file
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo -e "${YELLOW}Error: Configuration file not found: $CONFIG_FILE${NC}"
+        echo ""
+        echo "Please ensure $CONFIG_FILE exists or run previous setup scripts first"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}Loading configuration from: $CONFIG_FILE${NC}"
+    source "$CONFIG_FILE"
+    echo ""
+}
+
 # Function to log messages
 log() {
-    echo "$@" | tee -a "$LOG_FILE"
+    if [ "$DEBUG" = true ]; then
+        echo "$@" | tee -a "$LOG_FILE"
+    else
+        echo "$@"
+    fi
 }
 
 log_colored() {
-    echo -e "$@" | tee -a "$LOG_FILE"
+    if [ "$DEBUG" = true ]; then
+        echo -e "$@" | tee -a "$LOG_FILE"
+    else
+        echo -e "$@"
+    fi
 }
 
 log_error() {
-    echo -e "${RED}$@${NC}" | tee -a "$LOG_FILE" | tee -a "$ERRORS_FILE"
+    if [ "$DEBUG" = true ]; then
+        echo -e "${RED}$@${NC}" | tee -a "$LOG_FILE" | tee -a "$ERRORS_FILE"
+    else
+        echo -e "${RED}$@${NC}"
+    fi
 }
 
-echo -e "${BLUE}=============================================${NC}" | tee "$LOG_FILE"
-echo -e "${BLUE}  ECS Multi-Account 3-Cluster Deployment${NC}" | tee -a "$LOG_FILE"
-echo -e "${BLUE}  Final Version - All Improvements${NC}" | tee -a "$LOG_FILE"
-echo -e "${BLUE}=============================================${NC}" | tee -a "$LOG_FILE"
-log ""
-log "Log file: $LOG_FILE"
-log "Error file: $ERRORS_FILE"
-log ""
+echo -e "${BLUE}=============================================${NC}"
+echo -e "${BLUE}  ECS Multi-Account 3-Cluster Deployment${NC}"
+echo -e "${BLUE}=============================================${NC}"
+echo ""
 
 # Validate required commands
 check_prerequisites() {
@@ -94,9 +156,12 @@ validate_env_vars() {
     
     if [ $missing -eq 1 ]; then
         log_error "Error: Missing required environment variables."
-        log "Please source your configuration file or run:"
-        log "  source ./env-config.sh"
-        log "  source ./ecs-multi-account-env.sh"
+        log ""
+        log "Please ensure $CONFIG_FILE contains all required variables"
+        log "or run the previous setup scripts first:"
+        log "  ./setup-ecs-multi-account.sh"
+        log "  ./create-iam-multi-account.sh"
+        log ""
         exit 1
     fi
     log ""
@@ -533,6 +598,16 @@ deploy_to_account() {
 
 # Main deployment flow
 main() {
+    parse_options "$@"
+    load_config
+    
+    if [ "$DEBUG" = true ]; then
+        log "Debug mode enabled"
+        log "Log file: $LOG_FILE"
+        log "Error file: $ERRORS_FILE"
+        log ""
+    fi
+    
     log_colored "${BLUE}Starting deployment...${NC}"
     log ""
     
@@ -613,11 +688,15 @@ main() {
         log "   ./istioctl ztunnel-config services | grep ecs-${CLUSTER_NAME}"
     else
         log_colored "${RED}Fix the errors above before proceeding.${NC}"
-        log_colored "${YELLOW}Check the error details in: $ERRORS_FILE${NC}"
+        if [ "$DEBUG" = true ]; then
+            log_colored "${YELLOW}Check the error details in: $ERRORS_FILE${NC}"
+        fi
     fi
     
-    log ""
-    log "Full log saved to: $LOG_FILE"
+    if [ "$DEBUG" = true ]; then
+        log ""
+        log "Full log saved to: $LOG_FILE"
+    fi
     log ""
     
     # Exit with error code if deployment failed
@@ -625,4 +704,4 @@ main() {
 }
 
 # Run main function
-main
+main "$@"

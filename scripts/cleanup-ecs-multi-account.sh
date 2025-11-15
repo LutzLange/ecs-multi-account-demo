@@ -22,6 +22,54 @@ log_section() { echo -e "${BLUE}[====]${NC} $1"; }
 DELETED_RESOURCES=()
 FAILED_DELETIONS=()
 
+# Default configuration file
+CONFIG_FILE="env-config.sh"
+
+# Parse command line options
+parse_options() {
+    local TEMP
+    TEMP=$(getopt -o c: --long config: -n 'cleanup-ecs-multi-account.sh' -- "$@")
+    
+    if [ $? != 0 ]; then
+        echo "Usage: $0 [-c config-file]" >&2
+        exit 1
+    fi
+    
+    eval set -- "$TEMP"
+    
+    while true; do
+        case "$1" in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                echo "Internal error!" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Load configuration file
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        log_error "Configuration file not found: $CONFIG_FILE"
+        echo ""
+        log_error "Please ensure $CONFIG_FILE exists"
+        log_error "You can specify a different config file with: $0 -c <file>"
+        exit 1
+    fi
+    
+    log_info "Loading configuration from: $CONFIG_FILE"
+    source "$CONFIG_FILE"
+    echo ""
+}
+
 # Validate required environment variables
 validate_env() {
     local required_vars=(
@@ -40,10 +88,7 @@ validate_env() {
     done
     
     if [ $missing -eq 1 ]; then
-        log_error "Please source your environment configuration first:"
-        log_error "  source /tmp/ecs-multi-account-env.sh"
-        log_error "  OR"
-        log_error "  source ./env-config.sh"
+        log_error "Please ensure $CONFIG_FILE contains all required variables"
         exit 1
     fi
     
@@ -708,6 +753,9 @@ print_summary() {
 
 # Main execution
 main() {
+    parse_options "$@"
+    load_config
+    
     log_section "=== ECS Multi-Account Cleanup Script ==="
     echo ""
     
@@ -738,8 +786,8 @@ main() {
     
     print_summary
     
-    log_info "Remember to delete the environment file if you no longer need it:"
-    log_info "  rm /tmp/ecs-multi-account-env.sh"
+    log_info "Remember to clean up your configuration file if you no longer need it:"
+    log_info "  rm $CONFIG_FILE"
 }
 
 # Run main function

@@ -10,26 +10,77 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Default configuration file
+CONFIG_FILE="env-config.sh"
+
+# Parse command line options
+parse_options() {
+    local TEMP
+    TEMP=$(getopt -o c: --long config: -n 'add-services-to-mesh-3-clusters.sh' -- "$@")
+    
+    if [ $? != 0 ]; then
+        echo "Usage: $0 [-c config-file]" >&2
+        exit 1
+    fi
+    
+    eval set -- "$TEMP"
+    
+    while true; do
+        case "$1" in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                echo "Internal error!" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Load configuration file
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo -e "${YELLOW}Error: Configuration file not found: $CONFIG_FILE${NC}"
+        echo ""
+        echo "Please ensure $CONFIG_FILE exists or run previous setup scripts first"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}Loading configuration from: $CONFIG_FILE${NC}"
+    source "$CONFIG_FILE"
+    echo ""
+}
+
 echo -e "${BLUE}=============================================${NC}"
 echo -e "${BLUE}  Add ECS Services to Istio Mesh${NC}"
 echo -e "${BLUE}=============================================${NC}"
 echo ""
 
 # Validate required environment variables
-required_vars=("CLUSTER_NAME" "LOCAL_ACCOUNT_PROFILE" "EXTERNAL_ACCOUNT_PROFILE" "LOCAL_ECS_SERVICE_ACCOUNT_NAME" "EXTERNAL_ECS_SERVICE_ACCOUNT_NAME")
-for var in "${required_vars[@]}"; do
-    if [ -z "${!var}" ]; then
-        echo -e "${YELLOW}Error: $var is not defined.${NC}"
-        echo "Please run create-k8s-namespaces-3-clusters.sh first"
-        exit 1
-    fi
-done
-
-echo "Configuration:"
-echo "  Cluster Name: ${CLUSTER_NAME}"
-echo "  Local Profile: ${LOCAL_ACCOUNT_PROFILE}"
-echo "  External Profile: ${EXTERNAL_ACCOUNT_PROFILE}"
-echo ""
+validate_env() {
+    local required_vars=("CLUSTER_NAME" "LOCAL_ACCOUNT_PROFILE" "EXTERNAL_ACCOUNT_PROFILE" "LOCAL_ECS_SERVICE_ACCOUNT_NAME" "EXTERNAL_ECS_SERVICE_ACCOUNT_NAME")
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var}" ]; then
+            echo -e "${YELLOW}Error: $var is not defined.${NC}"
+            echo ""
+            echo "Please ensure $CONFIG_FILE contains this variable"
+            echo "or run the previous setup scripts first"
+            exit 1
+        fi
+    done
+    
+    echo "Configuration:"
+    echo "  Cluster Name: ${CLUSTER_NAME}"
+    echo "  Local Profile: ${LOCAL_ACCOUNT_PROFILE}"
+    echo "  External Profile: ${EXTERNAL_ACCOUNT_PROFILE}"
+    echo ""
+}
 
 # Function to add services for a cluster
 add_services_for_cluster() {
@@ -86,6 +137,10 @@ add_services_for_cluster() {
 
 # Main execution
 main() {
+    parse_options "$@"
+    load_config
+    validate_env
+    
     # Check if istioctl exists
     if [ ! -f "./istioctl" ]; then
         echo -e "${YELLOW}Error: istioctl not found in current directory${NC}"
@@ -135,4 +190,21 @@ main() {
 }
 
 # Run main function
-main
+main "$@"
+
+# ============================================
+# CLEANUP - Prevents shell pollution
+# ============================================
+
+# Unset all functions
+unset -f parse_options
+unset -f load_config
+unset -f validate_env
+unset -f add_services_for_cluster
+unset -f main
+
+# Unset variables
+unset GREEN BLUE YELLOW NC
+
+# Reset shell options
+set +e
