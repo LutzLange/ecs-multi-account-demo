@@ -622,10 +622,78 @@ Next steps:
 Create namespaces with Ambient mode enabled:
 
 ```bash
-source ./scripts/create-k8s-namespaces-3-clusters.sh
+./scripts/create-k8s-namespaces-3-clusters.sh
 ```
 
-**What this creates:**
+**Expected output:**
+
+```bash
+=============================================
+  Kubernetes Namespace Setup
+=============================================
+
+Loading configuration from: env-config.sh
+
+Configuration:
+  Cluster Name: escmulti
+  Local Service Account: ecs-demo-sa-local
+  External Service Account: ecs-demo-sa-external
+
+Creating namespaces for LOCAL clusters (1 and 2)...
+
+Creating namespace for cluster 1 (local)...
+namespace/ecs-escmulti-1 created
+namespace/ecs-escmulti-1 labeled
+  ✓ Namespace labeled for ambient mode
+serviceaccount/ecs-demo-sa-local created
+serviceaccount/ecs-demo-sa-local annotated
+  ✓ Service account annotated with role ARN
+    Namespace: ecs-escmulti-1
+    Service Account: ecs-demo-sa-local
+    Role ARN: arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
+
+Creating namespace for cluster 2 (local)...
+namespace/ecs-escmulti-2 created
+namespace/ecs-escmulti-2 labeled
+  ✓ Namespace labeled for ambient mode
+serviceaccount/ecs-demo-sa-local created
+serviceaccount/ecs-demo-sa-local annotated
+  ✓ Service account annotated with role ARN
+    Namespace: ecs-escmulti-2
+    Service Account: ecs-demo-sa-local
+    Role ARN: arn:aws:iam::253915036081:role/ecs/ambient/eks-ecs-task-role
+
+Creating namespace for EXTERNAL cluster (3)...
+
+Creating namespace for cluster 3 (external)...
+namespace/ecs-escmulti-3 created
+namespace/ecs-escmulti-3 labeled
+  ✓ Namespace labeled for ambient mode
+serviceaccount/ecs-demo-sa-external created
+serviceaccount/ecs-demo-sa-external annotated
+  ✓ Service account annotated with role ARN
+    Namespace: ecs-escmulti-3
+    Service Account: ecs-demo-sa-external
+    Role ARN: arn:aws:iam::360946914414:role/ecs/ambient/eks-ecs-task-role
+
+Saving service account names to configuration...
+✓ Service account names appended to: env-config.sh
+
+=============================================
+  Namespace Setup Complete!
+=============================================
+
+Created namespaces:
+  - ecs-escmulti-1 (local)
+  - ecs-escmulti-2 (local)
+  - ecs-escmulti-3 (external)
+
+Service account names saved to: env-config.sh
+
+Verify with:
+  kubectl get ns | grep ecs-escmulti
+  kubectl get sa -n ecs-escmulti-1
+```
 
 For each ECS cluster, creates a namespace like:
 ```yaml
@@ -639,18 +707,14 @@ metadata:
 
 **Service Mesh Concept**: The `istio.io/dataplane-mode: ambient` label tells Istio to use **ztunnel** (not sidecars). Traffic from this namespace is automatically captured and secured with mTLS.
 
-**Verify namespaces:**
+What it does for each ECS cluster:
 
-```bash
-kubectl get ns | grep ecs-
-```
+- Creates K8s namespace: ecs-${CLUSTER_NAME}-${NO}
+- Labels namespace with istio.io/dataplane-mode=ambient (enables Istio ambient mode)
+- Creates service account: $LOCAL_ECS_SERVICE_ACCOUNT_NAME (default: ecs-demo-sa-local)
+- Annotates service account with: ecs.solo.io/role-arn=$TASK_ROLE_ARN
 
-Expected:
-```
-ecs-two-accounts-1   Active   1m
-ecs-two-accounts-2   Active   1m
-ecs-two-accounts-3   Active   1m
-```
+This links the K8s service account to the AWS IAM role that ECS tasks will assume
 
 ### Step 5.2: Enroll Services in the Mesh
 
