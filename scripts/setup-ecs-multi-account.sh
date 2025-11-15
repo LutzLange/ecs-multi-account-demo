@@ -13,6 +13,59 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Default configuration file
+CONFIG_FILE="env-config.sh"
+
+# Parse command line options
+parse_options() {
+    local TEMP
+    TEMP=$(getopt -o c: --long config: -n 'setup-ecs-multi-account.sh' -- "$@")
+    
+    if [ $? != 0 ]; then
+        echo "Usage: $0 [-c config-file]" >&2
+        exit 1
+    fi
+    
+    eval set -- "$TEMP"
+    
+    while true; do
+        case "$1" in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                echo "Internal error!" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Load configuration file
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        log_error "Configuration file not found: $CONFIG_FILE"
+        log_error ""
+        log_error "Please create $CONFIG_FILE with required variables:"
+        log_error "  export LOCAL_ACCOUNT=123456789012"
+        log_error "  export EXTERNAL_ACCOUNT=987654321098"
+        log_error "  export LOCAL_ACCOUNT_PROFILE=default"
+        log_error "  export EXTERNAL_ACCOUNT_PROFILE=external-profile"
+        log_error "  export AWS_REGION=us-east-2"
+        log_error "  export CLUSTER_NAME=your-cluster-name"
+        log_error ""
+        exit 1
+    fi
+    
+    log_info "Loading configuration from: $CONFIG_FILE"
+    source "$CONFIG_FILE"
+}
+
 # Validate required environment variables
 validate_env() {
     local required_vars=(
@@ -814,12 +867,18 @@ EOF
     
     # Create istiod-role in local account
     local role_exists=$(aws iam get-role --role-name istiod-role --profile "$INT" 2>/dev/null || echo "")
+    local role_just_created=false
     if [ -z "$role_exists" ]; then
         aws iam create-role \
             --role-name istiod-role \
             --assume-role-policy-document file:///tmp/istiod-trust-policy.json \
             --profile "$INT" >/dev/null
         log_info "Created istiod-role in local account"
+        role_just_created=true
+        
+        # Wait for IAM role to propagate
+        log_info "Waiting 15 seconds for IAM role to propagate..."
+        sleep 15
     else
         log_info "istiod-role already exists in local account"
     fi
@@ -866,12 +925,35 @@ EOF
     role_exists=$(aws iam get-role --role-name istiod-local --profile "$INT" 2>/dev/null || echo "")
     if [ -z "$role_exists" ]; then
         log_info "Creating istiod-local role in local account..."
-        if aws iam create-role \
-            --role-name istiod-local \
-            --assume-role-policy-document file:///tmp/local-account-trust-policy.json \
-            --profile "$INT" 2>&1 | tee /tmp/istiod-local-creation.log; then
-            log_info "✓ Created istiod-local role in local account"
-            
+        
+        # Retry logic for role creation (handles IAM propagation delays)
+        local retries=0
+        local max_retries=5
+        local created=false
+        
+        while [ $retries -lt $max_retries ] && [ "$created" = false ]; do
+            if aws iam create-role \
+                --role-name istiod-local \
+                --assume-role-policy-document file:///tmp/local-account-trust-policy.json \
+                --profile "$INT" 2>&1 | tee /tmp/istiod-local-creation-$retries.log; then
+                log_info "✓ Created istiod-local role in local account"
+                created=true
+            else
+                retries=$((retries + 1))
+                if [ $retries -lt $max_retries ]; then
+                    log_warn "Failed to create istiod-local (attempt $retries/$max_retries), retrying in 10 seconds..."
+                    log_warn "This is often due to IAM propagation delays for istiod-role"
+                    sleep 10
+                else
+                    log_error "Failed to create istiod-local after $max_retries attempts"
+                    log_error "The istiod-role may not have propagated yet"
+                    log_error "See logs: /tmp/istiod-local-creation-*.log"
+                    return 1
+                fi
+            fi
+        done
+        
+        if [ "$created" = true ]; then
             if aws iam attach-role-policy \
                 --role-name istiod-local \
                 --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
@@ -881,11 +963,6 @@ EOF
                 log_error "Failed to attach policy to istiod-local"
                 return 1
             fi
-        else
-            log_error "Failed to create istiod-local role"
-            log_error "Error details in /tmp/istiod-local-creation.log"
-            cat /tmp/istiod-local-creation.log
-            return 1
         fi
     else
         log_info "istiod-local role already exists in local account"
@@ -1064,58 +1141,23 @@ EOF
 }
 
 # Discover ECS Task Roles
-discover_task_roles() {
-    log_info "=== Discovering ECS Task Roles ==="
-    
-    # Discover LOCAL task role
-    LOCAL_TASK_ROLE_ARN=$(aws iam get-role \
-        --role-name eks-ecs-task-role \
-        --query 'Role.Arn' \
-        --output text \
-        --profile "$INT" 2>/dev/null || echo "")
-    
-    if resource_exists "$LOCAL_TASK_ROLE_ARN"; then
-        log_info "✓ Found LOCAL task role: $LOCAL_TASK_ROLE_ARN"
-    else
-        log_error "✗ eks-ecs-task-role NOT found in local account"
-        log_error "Run: ./create-iam-multi-account.sh"
-        return 1
-    fi
-    
-    # Discover EXTERNAL task role
-    EXTERNAL_TASK_ROLE_ARN=$(aws iam get-role \
-        --role-name eks-ecs-task-role \
-        --query 'Role.Arn' \
-        --output text \
-        --profile "$EXT" 2>/dev/null || echo "")
-    
-    if resource_exists "$EXTERNAL_TASK_ROLE_ARN"; then
-        log_info "✓ Found EXTERNAL task role: $EXTERNAL_TASK_ROLE_ARN"
-    else
-        log_error "✗ eks-ecs-task-role NOT found in external account"
-        log_error "Run: ./create-iam-multi-account.sh"
-        return 1
-    fi
-    
-    export LOCAL_TASK_ROLE_ARN
-    export EXTERNAL_TASK_ROLE_ARN
-}
 
 # Save environment to file
 save_environment() {
     log_info "=== Saving Environment Variables ==="
     
-    cat > ./ecs-multi-account-env.sh <<EOF
-# Generated by setup-ecs-multi-account.sh on $(date)
+    # Remove any existing section generated by this script
+    if grep -q "# === Generated by setup-ecs-multi-account.sh" "$CONFIG_FILE" 2>/dev/null; then
+        # Create temp file with content before the marker
+        sed '/# === Generated by setup-ecs-multi-account.sh/,$d' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
+        mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+        log_info "Removed previous infrastructure variables from $CONFIG_FILE"
+    fi
+    
+    # Append new infrastructure variables
+    cat >> "$CONFIG_FILE" <<EOF
 
-export LOCAL_ACCOUNT="$LOCAL_ACCOUNT"
-export EXTERNAL_ACCOUNT="$EXTERNAL_ACCOUNT"
-export LOCAL_ACCOUNT_PROFILE="$LOCAL_ACCOUNT_PROFILE"
-export EXTERNAL_ACCOUNT_PROFILE="$EXTERNAL_ACCOUNT_PROFILE"
-export INT="$INT"
-export EXT="$EXT"
-export AWS_REGION="$AWS_REGION"
-export CLUSTER_NAME="$CLUSTER_NAME"
+# === Generated by setup-ecs-multi-account.sh on $(date) ===
 
 # VPC and Network Resources
 export LOCAL_VPC="$LOCAL_VPC"
@@ -1145,18 +1187,17 @@ export LOCAL_CLUSTER_SG="$LOCAL_CLUSTER_SG"
 # IAM Roles
 export LOCAL_ROLE="$LOCAL_ROLE"
 export EXTERNAL_ROLE="$EXTERNAL_ROLE"
-
-# ECS Task Roles
-export LOCAL_TASK_ROLE_ARN="$LOCAL_TASK_ROLE_ARN"
-export EXTERNAL_TASK_ROLE_ARN="$EXTERNAL_TASK_ROLE_ARN"
 EOF
     
-    log_info "Environment saved to: ./ecs-multi-account-env.sh"
-    log_info "To load these variables in a new shell, run: source ./ecs-multi-account-env.sh"
+    log_info "Infrastructure variables appended to: $CONFIG_FILE"
+    log_info "To load these variables in a new shell, run: source $CONFIG_FILE"
 }
 
 # Main execution
 main() {
+    parse_options "$@"
+    load_config
+    
     log_info "Starting ECS Multi-Account Setup"
     log_info "========================================"
     
@@ -1173,7 +1214,6 @@ main() {
     setup_vpc_peering || failed_steps+=("setup_vpc_peering")
     configure_security_groups || failed_steps+=("configure_security_groups")
     setup_iam_roles || failed_steps+=("setup_iam_roles")
-    discover_task_roles || failed_steps+=("discover_task_roles")
     
     # Always save environment, even if some steps failed
     save_environment
@@ -1198,8 +1238,8 @@ main() {
         log_warn "3. Re-run this script (it's idempotent)"
     fi
     log_info ""
-    log_info "All environment variables have been saved to: ./ecs-multi-account-env.sh"
-    log_info "Load them with: source ./ecs-multi-account-env.sh"
+    log_info "All environment variables have been saved to: $CONFIG_FILE"
+    log_info "Load them with: source $CONFIG_FILE"
 }
 
 # Run main function
