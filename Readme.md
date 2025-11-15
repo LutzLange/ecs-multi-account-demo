@@ -1248,7 +1248,7 @@ Are you sure you want to continue? (yes/no): yes
 - Authorization policies in all namespaces
 - Waypoint proxies
 - Services removed from mesh (ServiceEntry, WorkloadEntry)
-- Kubernetes namespaces (ecs-istio-multi-account-{1,2,3})
+- Kubernetes namespaces (ecs-${CLUSTER_NAME}-{1,2,3})
 - EKS test deployments (eks-shell, eks-echo)
 - Istio control plane (istiod, ztunnel, CNI)
 
@@ -1303,9 +1303,24 @@ aws ec2 describe-vpcs --profile $EXTERNAL_ACCOUNT_PROFILE
 aws iam list-roles --profile $LOCAL_ACCOUNT_PROFILE | grep -E "istiod|ecs-task"
 ```
 
+### EKS & VPC1 cleanup
+
+Now there is only the EKS cluster and VPC in the local account left.
+
+Clean these up with :
+
+```bash
+export AWS_PROFILE=$INT
+eksctl delete cluster -n ${CLUSTER_NAME}
+```
+
+Please note, If you need / want to start over quickly and create the environment again, change your CLUSTER_NAME as some resources on the AWS side (e.g. ECS Clusters) will linger until final cleanup by AWS and thus block you from creating the environment with the same resource names.
+
 ---
 
 ## Appendix: Quick Command Reference
+
+**TODO** update this section.
 
 ```bash
 # View service mesh topology
