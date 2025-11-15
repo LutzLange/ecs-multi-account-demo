@@ -3,8 +3,7 @@
 This should work up to the policy section.
 
 TODO: 
-- clean up env VAR handling 
-- check and improve L7 policy section
+- check and improve L7 policy section (waiting on engineering) 
 - update diagram
 
 # Istio Ambient Multi-Account ECS Integration
