@@ -83,7 +83,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 ### Environment Setup
 
 1. Check out this repository
-2. Create a file in your local checkout directory called ecs-multi-account-env.sh that contains the flollowing values.
+2. Create a file in your local checkout directory called env-config.sh that contains the flollowing values.
 
 ```bash
 cat << EOF > env-config.sh
@@ -188,31 +188,6 @@ Execute the automated setup script:
 [INFO] Created istiod-role in local account
 ...
 [INFO] Setup Complete!
-```
-
-## Load Environment Variables
-
-The script saves all created resource IDs to a file:
-
-```bash
-source ecs-multi-account-env.sh
-```
-
-This loads variables including:
-- VPC and subnet IDs
-- Security group IDs
-- IAM role ARNs
-- Network CIDRs
-
-**Verify the setup:**
-
-```bash
-echo "Local VPC: $LOCAL_VPC"
-echo "External VPC: $EXTERNAL_VPC"
-echo "Peering ID: $PEERING_ID"https://oidc.us-east-1.amazonaws.com/authorize?response_type=code&client_id=-g2PGGcsc8HgU2GlKTaiwHVzLWVhc3QtMQ&redirect_uri=http%3A%2F%2F127.0.0.1%3A41651%2Foauth%2Fcallback&state=b78a05e8-c5ad-41a2-9cfa-9e4b4a4343ef&code_challenge_method=S256&scopes=sso%3Aaccount%3Aaccess&code_challenge=rJvDHo7CvWlUyehnTEei0eCRd3K4RdXVcxr-Ug7ybO0
-
-echo "Local Role: $LOCAL_ROLE"
-echo "External Role: $EXTERNAL_ROLE"
 ```
 
 ---
@@ -1173,11 +1148,7 @@ To remove all resources, use the automated cleanup script:
 ### Run Automated Cleanup
 
 ```bash
-# Ensure environment is loaded
-source /tmp/ecs-multi-account-env.sh
-
 # Run cleanup script
-chmod +x cleanup-ecs-multi-account.sh
 ./cleanup-ecs-multi-account.sh
 ```
 
