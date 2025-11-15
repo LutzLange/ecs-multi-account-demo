@@ -1,6 +1,4 @@
-**WORK in progress 14-Nov-2025**
-
-This should work up to the policy section.
+**Checked and good to go until L7**
 
 TODO: 
 - check and improve L7 policy section (waiting on engineering) 
@@ -1045,7 +1043,7 @@ curl: (56) Recv failure: Connection reset by peer
 Command completed
 ```
 
-# 14-Nov-25 tested until this line with success
+# 15-Nov-25 tested until this line with success
 
 ----
 **untested area**
@@ -1265,50 +1263,6 @@ kubectl logs -n istio-system deploy/istiod | grep ecs
 # "configured ecs accounts" with both account roles
 ```
 
-**🔴 CRITICAL: Verify ECS cluster discovery tags**
-
-The most common reason for services not being discovered is missing the required tag on ECS clusters:
-
-```bash
-# Check if clusters have the discovery tag
-for cluster in ecs-istio-multi-account-1 ecs-istio-multi-account-2; do
-  echo "Checking $cluster..."
-  cluster_arn=$(aws ecs describe-clusters \
-    --clusters $cluster \
-    --profile $LOCAL_ACCOUNT_PROFILE \
-    --query 'clusters[0].clusterArn' \
-    --output text)
-  
-  aws ecs list-tags-for-resource \
-    --resource-arn $cluster_arn \
-    --profile $LOCAL_ACCOUNT_PROFILE \
-    --query 'tags[?key==`ecs.solo.io/discovery-enabled`].value' \
-    --output text
-done
-
-# For external cluster
-cluster_arn=$(aws ecs describe-clusters \
-  --clusters ecs-istio-multi-account-3 \
-  --profile $EXTERNAL_ACCOUNT_PROFILE \
-  --query 'clusters[0].clusterArn' \
-  --output text)
-
-aws ecs list-tags-for-resource \
-  --resource-arn $cluster_arn \
-  --profile $EXTERNAL_ACCOUNT_PROFILE \
-  --query 'tags[?key==`ecs.solo.io/discovery-enabled`].value' \
-  --output text
-```
-
-**Expected output:** `true` for each cluster
-
-**If missing, add the tag:**
-```bash
-aws ecs tag-resource \
-  --resource-arn <cluster-arn> \
-  --tags key=ecs.solo.io/discovery-enabled,value=true \
-  --profile <profile>
-
 # Restart istiod to re-discover clusters
 kubectl rollout restart deployment/istiod -n istio-system
 ```
@@ -1520,20 +1474,7 @@ If the automated script fails, you can manually clean up using AWS Console or CL
 
 Remove the environment configuration file:
 ```bash
-rm /tmp/ecs-multi-account-env.sh
-```
-
-**Verify everything is deleted:**
-```bash
-# Check ECS clusters
-aws ecs list-clusters --profile $LOCAL_ACCOUNT_PROFILE
-aws ecs list-clusters --profile $EXTERNAL_ACCOUNT_PROFILE
-
-# Check VPCs
-aws ec2 describe-vpcs --profile $EXTERNAL_ACCOUNT_PROFILE
-
-# Check IAM roles
-aws iam list-roles --profile $LOCAL_ACCOUNT_PROFILE | grep -E "istiod|ecs-task"
+rm ecs-config.sh
 ```
 
 ### EKS & VPC1 cleanup
