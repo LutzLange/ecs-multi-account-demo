@@ -818,6 +818,19 @@ ecs-task-360946914414-eu-central-1-ecs-escmulti-3-ad72703a8e364c47adec0c34be6d74
 
 **🎉 If you see HBONE protocol, your services are enrolled in the mesh with automatic mTLS!**
 
+All external ECS services should now have serviceentry obejcts and "Hosts" that can be resolved inside of the mesh to reach the workloads :
+
+```bash
+$ k get serviceentry -A
+NAMESPACE        NAME                                                                HOSTS                                          LOCATION   RESOLUTION   AGE
+ecs-escmulti-1   ecs-service-253915036081-eu-central-1-ecs-escmulti-1-echo-service   ["echo-service.ecs-escmulti-1.ecs.local"]                 STATIC       6m4s
+ecs-escmulti-1   ecs-service-253915036081-eu-central-1-ecs-escmulti-1-shell-task     ["shell-task.ecs-escmulti-1.ecs.local"]                   STATIC       6m4s
+ecs-escmulti-2   ecs-service-253915036081-eu-central-1-ecs-escmulti-2-echo-service   ["echo-service.ecs-escmulti-2.ecs.local"]                 STATIC       6m4s
+ecs-escmulti-2   ecs-service-253915036081-eu-central-1-ecs-escmulti-2-shell-task     ["shell-task.ecs-escmulti-2.ecs.local"]                   STATIC       6m4s
+ecs-escmulti-3   ecs-service-360946914414-eu-central-1-ecs-escmulti-3-echo-service   ["echo-service.ecs-escmulti-3.ecs.external"]              STATIC       6m4s
+ecs-escmulti-3   ecs-service-360946914414-eu-central-1-ecs-escmulti-3-shell-task     ["shell-task.ecs-escmulti-3.ecs.external"]                STATIC       6m4s
+```
+
 ## Step 7: Test Cross-Account Communication
 
 **Deploy Test Pods in the EKS Cluster**
