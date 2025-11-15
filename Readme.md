@@ -86,7 +86,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 2. Create a file in your local checkout directory called ecs-multi-account-env.sh that contains the flollowing values.
 
 ```bash
-cat << EOF > ecs-multi-account-env.sh
+cat << EOF > env-config.sh
 # AWS Account Information
 export LOCAL_ACCOUNT=<your_local_account_id>              # e.g., 123456789012
 export EXTERNAL_ACCOUNT=<your_external_account_id>        # e.g., 987654321098
