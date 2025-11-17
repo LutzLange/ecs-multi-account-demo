@@ -24,25 +24,27 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ## Architecture: Service Mesh Perspective
 
-
-
 ```mermaid
 flowchart LR
 
-%% STYLES
+%% ===================== GLOBAL STYLES ===================== %%
 classDef ns fill:#E8F4FF,stroke:#5CA8FF,stroke-width:1px
-classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px
-classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px
-classDef ct fill:#FFFFFF,stroke:#7A7A7A,stroke-width:1px
-classDef zt fill:#FFE0B2,stroke:#FF8A00,stroke-width:1px
+classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px               %% Control plane
+classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px               %% Data plane workloads
+classDef ct fill:#FFFFFF,stroke:#7A7A7A,stroke-width:1px               %% App containers
+classDef zt fill:#FFE0B2,stroke:#FF8A00,stroke-width:1px               %% Ztunnel containers
 
-%% ============================================
-%% LOCAL ACCOUNT
-%% ============================================
+classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px               %% ServiceEntry/Service
+classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px               %% WorkloadEntry targets
+classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px              %% Policies
+
+
+%% ================= AWS LOCAL ACCOUNT ================= %%
 subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
   direction TB
 
-  %% -------- EKS CLUSTER --------
+
+  %% -------- EKS CLUSTER -------- %%
   subgraph EKS["EKS cluster"]
     direction TB
 
@@ -52,106 +54,137 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
 
     ZtEKS["ztunnel on EKS nodes<br/>(ambient dataplane)"]:::zt
 
-    %% Namespace: default
+
+    %% ---- namespace: default (split pods) ---- %%
     subgraph NS_DEFAULT["namespace: default"]
-      EKSClient["eks-shell / eks-echo<br/>(app ports: 8080)"]:::dp
+      EKS_Shell["pod: eks-shell"]:::dp
+      EKS_Echo["pod: eks-echo<br/>port:8080"]:::dp
     end
 
-    %% Namespace: ecs-escmulti-1
+
+    %% ---- namespace: ecs-escmulti-1 ---- %%
     subgraph NS_ECS1["namespace: ecs-escmulti-1"]
-      SVC1["Service / ServiceEntry:<br/>echo-service"]:::ns
-      WE1["WorkloadEntries → ECS tasks"]:::ns
-      POL1["Policies (authz, etc.)"]:::ns
+      SVC1["ServiceEntry:<br/>echo-service"]:::se
+      WE1["WorkloadEntries"]:::we
+      POL1["Policies"]:::pol
     end
 
-    %% Namespace: ecs-escmulti-2
+
+    %% ---- namespace: ecs-escmulti-2 ---- %%
     subgraph NS_ECS2["namespace: ecs-escmulti-2"]
-      SVC2["Service / ServiceEntry:<br/>echo-service"]:::ns
-      WE2["WorkloadEntries → ECS tasks"]:::ns
-      POL2["Policies (authz, etc.)"]:::ns
+      SVC2["ServiceEntry:<br/>echo-service"]:::se
+      WE2["WorkloadEntries"]:::we
+      POL2["Policies"]:::pol
     end
 
-    %% Namespace: ecs-escmulti-3 (external)
-    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account)"]
-      SVC3["Service / ServiceEntry:<br/>echo-service"]:::ns
-      WE3["WorkloadEntries → External ECS tasks"]:::ns
-      POL3["Policies (authz, etc.)"]:::ns
+
+    %% ---- namespace: ecs-escmulti-3 (external projection) ---- %%
+    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]
+      SVC3["ServiceEntry:<br/>echo-service"]:::se
+      WE3["WorkloadEntries"]:::we
+      POL3["Policies"]:::pol
     end
+
   end
 
-  %% -------- ECS (LOCAL) --------
+
+  %% -------- LOCAL ECS CLUSTERS -------- %%
   subgraph ECS_LOCAL["ECS Fargate clusters (LOCAL)"]
     direction TB
 
-    %% ECS1
+    %% ------ ECS1 ------ %%
     subgraph ECS1["ECS cluster: ecs-escmulti-1"]
       direction TB
+
       subgraph ECS1Echo["task: echo-service"]
-        ECS1EchoApp["container: echo-service<br/>port:8080"]:::ct
-        ECS1EchoZt["container: ztunnel"]:::zt
+        E1A["container: echo-service<br/>port:8080"]:::ct
+        E1Z["container: ztunnel"]:::zt
       end
+
       subgraph ECS1Shell["task: shell"]
-        ECS1ShellApp["container: shell<br/>curl via ALL_PROXY"]:::ct
-        ECS1ShellZt["container: ztunnel"]:::zt
+        S1A["container: shell"]:::ct
+        S1Z["container: ztunnel"]:::zt
       end
     end
 
-    %% ECS2
+
+    %% ------ ECS2 ------ %%
     subgraph ECS2["ECS cluster: ecs-escmulti-2"]
       direction TB
+
       subgraph ECS2Echo["task: echo-service"]
-        ECS2EchoApp["container: echo-service<br/>port:8080"]:::ct
-        ECS2EchoZt["container: ztunnel"]:::zt
+        E2A["container: echo-service<br/>port:8080"]:::ct
+        E2Z["container: ztunnel"]:::zt
       end
+
       subgraph ECS2Shell["task: shell"]
-        ECS2ShellApp["container: shell"]:::ct
-        ECS2ShellZt["container: ztunnel"]:::zt
+        S2A["container: shell"]:::ct
+        S2Z["container: ztunnel"]:::zt
       end
     end
+
   end
+
 end
 
-%% ============================================
-%% EXTERNAL ACCOUNT ECS
-%% ============================================
+
+%% ================= EXTERNAL ACCOUNT ================= %%
 subgraph AWS_EXT["External Account"]
   direction TB
 
   subgraph ECS3["ECS cluster: ecs-escmulti-3"]
     direction TB
+
     subgraph ECS3Echo["task: echo-service"]
-      ECS3EchoApp["container: echo-service<br/>port:8080"]:::ct
-      ECS3EchoZt["container: ztunnel"]:::zt
+      E3A["container: echo-service<br/>port:8080"]:::ct
+      E3Z["container: ztunnel"]:::zt
     end
+
     subgraph ECS3Shell["task: shell"]
-      ECS3ShellApp["container: shell"]:::ct
-      ECS3ShellZt["container: ztunnel"]:::zt
+      S3A["container: shell"]:::ct
+      S3Z["container: ztunnel"]:::zt
     end
+
   end
 end
 
-%% ============================================
-%% REGISTRATION / CONFIG RELATIONSHIPS (⓪)
-%% ============================================
-ECS1EchoZt -->|"⓪ register endpoint"| WE1
-ECS2EchoZt -->|"⓪ register endpoint"| WE2
-ECS3EchoZt -->|"⓪ register endpoint"| WE3
 
-SVC1 -->|"⓪ svc config"| Istiod
-WE1  -->|"⓪ workload endpoints"| Istiod
-POL1 -->|"⓪ policies"| Istiod
+%% ======================================================
+%% REGISTRATION / DISCOVERY FLOW (BOTH echo + shell)
+%% ======================================================
 
-SVC2 -->|"⓪ svc config"| Istiod
-WE2  -->|"⓪ workload endpoints"| Istiod
-POL2 -->|"⓪ policies"| Istiod
+%% ecs-escmulti-1 tasks → NS_ECS1
+E1Z -->|"register endpoint"| WE1
+S1Z -->|"register endpoint"| WE1
 
-SVC3 -->|"⓪ svc config"| Istiod
-WE3 -->|"⓪ workload endpoints"| Istiod
-POL3 -->|"⓪ policies"| Istiod
+%% ecs-escmulti-2 tasks → NS_ECS2
+E2Z -->|"register endpoint"| WE2
+S2Z -->|"register endpoint"| WE2
 
-Istiod -->|"⓪ xDS push"| EWGW
-Istiod -->|"⓪ ztunnel config"| ZtEKS
+%% ecs-escmulti-3 tasks → NS_ECS3
+E3Z -->|"register endpoint"| WE3
+S3Z -->|"register endpoint"| WE3
+
+
+%% SERVICES + POLICIES → ISTIOD
+SVC1 -->|"service config"| Istiod
+WE1  -->|"workload info"| Istiod
+POL1 -->|"policy config"| Istiod
+
+SVC2 -->|"service config"| Istiod
+WE2  -->|"workload info"| Istiod
+POL2 -->|"policy config"| Istiod
+
+SVC3 -->|"service config"| Istiod
+WE3  -->|"workload info"| Istiod
+POL3 -->|"policy config"| Istiod
+
+
+%% ISTIOD → DATA PLANE
+Istiod -->|"xDS config"| EWGW
+Istiod -->|"ztunnel config"| ZtEKS
 ```
+
 
 
 
