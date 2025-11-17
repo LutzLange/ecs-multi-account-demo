@@ -24,11 +24,11 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ## Architecture: Service Mesh Perspective
 
-```mermaid
+
 flowchart LR
   %% Class definitions
   classDef ns fill:#E8F4FF,stroke:#5CA8FF,stroke-width:1px;   %% namespaces (light blue)
-  classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px;   %% control-plane
+  classDef cp fil```mermaidl:#E3F2FD,stroke:#1E88E5,stroke-width:1px;   %% control-plane
   classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px;   %% dataplane / apps
 
   %% High-level layout: two AWS accounts
@@ -108,7 +108,7 @@ flowchart LR
   class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns;
 
 
-```
+``
 
 
 
