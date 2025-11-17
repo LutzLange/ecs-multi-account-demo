@@ -57,7 +57,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
       class EKSClient dp
     end
 
-    %% ECS namespaces defined in EKS
+    %% ECS namespaces in EKS
     subgraph NS_ECS1["namespace: ecs-escmulti-1"]
       SVC1["Service: echo-service"]
       WE1["WorkloadEntries → ECS tasks"]
@@ -74,26 +74,26 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     end
   end
 
-  %% ECS CLUSTERS IN LOCAL ACCOUNT
+  %% ECS CLUSTERS (LOCAL)
   subgraph ECS_LOCAL["ECS Fargate clusters"]
     direction TB
 
     subgraph ECS1["ECS cluster: ecs-escmulti-1"]
       direction TB
 
-      %% echo task with two containers
+      %% echo task (two containers)
       subgraph ECS1Echo["task: echo-service"]
         direction TB
         ECS1EchoApp["container: echo-service<br/>port 8080"]
-        ECS1EchoZt["container: ztunnel<br/>SOCKS5 -> HBONE"]
+        ECS1EchoZt["container: ztunnel<br/>SOCKS5 → HBONE"]
         class ECS1EchoApp,ECS1EchoZt ct
       end
 
-      %% shell task with two containers
+      %% shell task (two containers)
       subgraph ECS1Shell["task: shell"]
         direction TB
         ECS1ShellApp["container: shell<br/>curl via ALL_PROXY"]
-        ECS1ShellZt["container: ztunnel<br/>SOCKS5 -> HBONE"]
+        ECS1ShellZt["container: ztunnel<br/>SOCKS5 → HBONE"]
         class ECS1ShellApp,ECS1ShellZt ct
       end
       class ECS1Echo,ECS1Shell dp
@@ -140,30 +140,29 @@ subgraph AWS_EXT["External Account"]
   end
 end
 
-%% REGISTRATION
+%% Registration (WorkloadEntries map ECS tasks to mesh)
 ECS1Echo --- WE1
 ECS2Echo --- WE2
 ECS3Echo --- WE3
 
-%% CONTROL PLANE
+%% CONTROL PLANE (unchanged)
 Istiod -->|"xDS mTLS 15012"| EWGW
 Istiod -->|"xDS mTLS 15012"| ZtEKS
 
-%% DATA PLANE EXAMPLE 1
-ECS1ShellApp -->|"curl -> SOCKS5 15080"| ECS1ShellZt
-ECS1ShellZt -->|"HBONE 15008<br/>src ns: ecs-escmulti-1<br/>dst ns: ecs-escmulti-2"| EWGW
-EWGW -->|"HBONE 15008"| ECS2EchoZt
-ECS2EchoZt -->|"local TCP"| ECS2EchoApp
+%% DATA PLANE — EXAMPLE 1 (ECS1 shell → ECS2 echo)
+ECS1ShellApp -->|"① curl → SOCKS5:15080"| ECS1ShellZt
+ECS1ShellZt -->|"② HBONE:15008<br/>src ns=ecs-escmulti-1<br/>dst ns=ecs-escmulti-2"| EWGW
+EWGW -->|"③ HBONE:15008<br/>mesh routing via namespace"| ECS2EchoZt
+ECS2EchoZt -->|"④ local TCP"| ECS2EchoApp
 
-%% DATA PLANE EXAMPLE 2 (EKS → External Account)
-EKSClient -->|"HTTP :8080"| ZtEKS
-ZtEKS -->|"HBONE 15008<br/>target ns: ecs-escmulti-3"| EWGW
-EWGW -->|"HBONE 15008"| ECS3EchoZt
-ECS3EchoZt -->|"local TCP"| ECS3EchoApp
+%% DATA PLANE — EXAMPLE 2 (EKS pod → External echo)
+EKSClient -->|"① HTTP :8080"| ZtEKS
+ZtEKS -->|"② HBONE:15008<br/>dst ns=ecs-escmulti-3"| EWGW
+EWGW -->|"③ HBONE:15008"| ECS3EchoZt
+ECS3EchoZt -->|"④ local TCP"| ECS3EchoApp
 
-%% Color namespaces
+%% Namespace color
 class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns
-
 ```
 
 
