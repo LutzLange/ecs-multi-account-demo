@@ -24,7 +24,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ## Architecture: Service Mesh Perspective
 
-```mermaid
+
 ```mermaid
 flowchart LR
 
