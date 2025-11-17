@@ -26,86 +26,84 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ```mermaid
 flowchart LR
-  %% Class definitions
-  classDef ns fill:#E8F4FF,stroke:#5CA8FF,stroke-width:1px;   %% namespaces (light blue)
-  classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px;   %% control-plane
-  classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px;   %% dataplane / apps
 
-  %% High-level layout: two AWS accounts
-  subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
+%% Class definitions
+classDef ns fill:#E8F4FF,stroke:#5CA8FF,stroke-width:1px
+classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px
+classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px
+
+%% AWS LOCAL
+subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
+  direction TB
+
+  %% EKS cluster
+  subgraph EKS["EKS cluster"]
     direction TB
 
-    %% EKS control plane + ambient dataplane
-    subgraph EKS["EKS cluster"]
-      direction TB
+    Istiod["Istiod<br/>(control plane)"]
+    class Istiod cp
 
-      Istiod["Istiod<br/>(control plane)"]
-      class Istiod cp
+    EWGW["East-West Gateway<br/>(Gateway API)<br/>HBONE: 15008<br/>xDS: 15012"]
+    class EWGW dp
 
-      EWGW["East-West Gateway<br/>(Gateway API)<br/>HBONE: 15008<br/>xDS: 15012"]
-      class EWGW dp
+    ZtEKS["ztunnel on EKS nodes<br/>(ambient dataplane)"]
+    class ZtEKS dp
 
-      ZtEKS["ztunnel on EKS nodes<br/>(ambient dataplane)"]
-      class ZtEKS dp
-
-      subgraph NS_DEFAULT["namespace: default"]
-        direction TB
-        EKSClient["eks-shell / eks-echo<br/>(app ports: 8080)"]
-        class EKSClient dp
-      end
-
-      subgraph NS_ECS1["namespace: ecs-escmulti-1"]
-        direction TB
-        NSA1["K8s SA ↔ IAM Role<br/>LOCAL_TASK_ROLE_ARN"]
-      end
-
-      subgraph NS_ECS2["namespace: ecs-escmulti-2"]
-        direction TB
-        NSA2["K8s SA ↔ IAM Role<br/>LOCAL_TASK_ROLE_ARN"]
-      end
+    subgraph NS_DEFAULT["namespace: default"]
+      EKSClient["eks-shell / eks-echo<br/>(app ports: 8080)"]
+      class EKSClient dp
     end
 
-    %% Local ECS clusters
-    subgraph ECS_LOCAL["ECS Fargate clusters"]
-      direction TB
+    subgraph NS_ECS1["namespace: ecs-escmulti-1"]
+      NSA1["K8s SA ↔ IAM Role<br/>LOCAL_TASK_ROLE_ARN"]
+    end
 
-      subgraph ECS1["ECS cluster: ecs-escmulti-1"]
-        ECS1Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
-        class ECS1Tasks dp
-      end
-
-      subgraph ECS2["ECS cluster: ecs-escmulti-2"]
-        ECS2Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
-        class ECS2Tasks dp
-      end
+    subgraph NS_ECS2["namespace: ecs-escmulti-2"]
+      NSA2["K8s SA ↔ IAM Role<br/>LOCAL_TASK_ROLE_ARN"]
     end
   end
 
-  subgraph AWS_EXT["AWS Account B (EXTERNAL)"]
+  %% ECS clusters LOCAL
+  subgraph ECS_LOCAL["ECS Fargate clusters"]
     direction TB
 
-    subgraph ECS3["ECS cluster: ecs-escmulti-3"]
-      ECS3Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
-      class ECS3Tasks dp
+    subgraph ECS1["ECS cluster: ecs-escmulti-1"]
+      ECS1Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
+      class ECS1Tasks dp
     end
 
-    NS_ECS3["K8s namespace on EKS:<br/>namespace: ecs-escmulti-3<br/>K8s SA ↔ EXTERNAL_TASK_ROLE_ARN"]
+    subgraph ECS2["ECS cluster: ecs-escmulti-2"]
+      ECS2Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
+      class ECS2Tasks dp
+    end
+  end
+end
+
+%% AWS EXTERNAL
+subgraph AWS_EXT["AWS Account B (EXTERNAL)"]
+  direction TB
+
+  subgraph ECS3["ECS cluster: ecs-escmulti-3"]
+    ECS3Tasks["echo-service:8080 / shell-task / ztunnel<br/>ALL_PROXY=socks5h://127.0.0.1:15080"]
+    class ECS3Tasks dp
   end
 
-  %% Control-plane flows
-  Istiod -->|"xDS mTLS<br/>port 15012"| EWGW
-  Istiod -->|"xDS mTLS<br/>port 15012"| ZtEKS
+  NS_ECS3["K8s namespace on EKS:<br/>namespace: ecs-escmulti-3<br/>K8s SA ↔ EXTERNAL_TASK_ROLE_ARN"]
+end
 
-  %% Data-plane path (EKS pod -> external ECS echo-service)
-  EKSClient -->|"app request :8080<br/>(DNS: echo-service.ecs-escmulti-3.ecs.external)"| ZtEKS
-  ZtEKS -->|"HBONE mTLS<br/>port 15008"| EWGW
-  EWGW -->|"HBONE mTLS<br/>port 15008"| ECS3Tasks
+%% Data-plane + control-plane flows
+Istiod -->|"xDS mTLS<br/>port 15012"| EWGW
+Istiod -->|"xDS mTLS<br/>port 15012"| ZtEKS
 
-  %% Local ECS↔ECS via mesh (conceptual)
-  ECS1Tasks -->|"HBONE mTLS<br/>port 15008<br/>via ztunnel / EW GW"| ECS2Tasks
+EKSClient -->|"app request :8080<br/>(DNS: echo-service.ecs-escmulti-3.ecs.external)"| ZtEKS
+ZtEKS -->|"HBONE mTLS<br/>port 15008"| EWGW
+EWGW -->|"HBONE mTLS<br/>port 15008"| ECS3Tasks
 
-  %% Apply light-blue style to namespaces
-  class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns;
+ECS1Tasks -->|"HBONE mTLS<br/>port 15008<br/>via ztunnel / EW GW"| ECS2Tasks
+
+%% Apply namespace color
+class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns
+
 ```
 
 
