@@ -22,19 +22,16 @@ Deploy a single Istio control plane in an EKS cluster that manages ECS services 
 
 Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh concepts.
 
-## Architecture: Service Mesh Perspective
-
+## Architecture
 
 ```mermaid
 flowchart LR
 
-%% ===================== STYLE DEFINITIONS =====================
-classDef ns fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+%% ---------- STYLE DEFINITIONS ----------
 classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px
 classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px
 classDef ct fill:#FFFFFF,stroke:#7A7A7A,stroke-width:1px
 classDef zt fill:#FFE0B2,stroke:#FF8A00,stroke-width:1px
-
 classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px
 classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px
 classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px
@@ -51,34 +48,34 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     direction TB
 
     %% ---- namespace: istio-system ----
-    subgraph NS_ISTIO["namespace: istio-system"]:::ns
+    subgraph NS_ISTIO["namespace: istio-system"]
       ISTIOD["Istiod<br/>(control plane)"]:::cp
       EWGW["East-West Gateway<br/>(Gateway API)"]:::dp
       ZtEKS["ztunnel<br/>(ambient dataplane)"]:::zt
     end
 
     %% ---- namespace: default ----
-    subgraph NS_DEFAULT["namespace: default"]:::ns
+    subgraph NS_DEFAULT["namespace: default"]
       EKS_Shell["pod: eks-shell"]:::dp
       EKS_Echo["pod: eks-echo<br/>port:8080"]:::dp
     end
 
     %% ---- namespace: ecs-escmulti-1 ----
-    subgraph NS_ECS1["namespace: ecs-escmulti-1"]:::ns
+    subgraph NS_ECS1["namespace: ecs-escmulti-1"]
       SVC1["ServiceEntry:<br/>echo-service"]:::se
       WE1["WorkloadEntries"]:::we
       POL1["Policies"]:::pol
     end
 
     %% ---- namespace: ecs-escmulti-2 ----
-    subgraph NS_ECS2["namespace: ecs-escmulti-2"]:::ns
+    subgraph NS_ECS2["namespace: ecs-escmulti-2"]
       SVC2["ServiceEntry:<br/>echo-service"]:::se
       WE2["WorkloadEntries"]:::we
       POL2["Policies"]:::pol
     end
 
-    %% ---- namespace: ecs-escmulti-3 ----
-    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]:::ns
+    %% ---- namespace: ecs-escmulti-3 (external view) ----
+    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]
       SVC3["ServiceEntry:<br/>echo-service"]:::se
       WE3["WorkloadEntries"]:::we
       POL3["Policies"]:::pol
@@ -142,7 +139,7 @@ end
 
 
 %% ======================================================================
-%% REGISTRATION / ENDPOINT DISCOVERY
+%% REGISTRATION / DISCOVERY LINKS
 %% ======================================================================
 
 %% endpoints registering from ECS1
@@ -173,8 +170,17 @@ POL3 --> ISTIOD
 %% Istio config delivery
 ISTIOD -->|"xDS config"| EWGW
 ISTIOD -->|"ztunnel config"| ZtEKS
-```
 
+
+%% ======================================================================
+%% NAMESPACE BOX STYLING (applied after subgraph definitions)
+%% ======================================================================
+style NS_ISTIO fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+style NS_DEFAULT fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+style NS_ECS1 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+style NS_ECS2 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+style NS_ECS3 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+```
 
 
 
