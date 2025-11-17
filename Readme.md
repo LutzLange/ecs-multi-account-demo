@@ -40,42 +40,44 @@ classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px
 classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px
 
 
-%% ================= AWS LOCAL ACCOUNT =====================
+%% ======================================================================
+%% AWS LOCAL ACCOUNT
+%% ======================================================================
 subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
   direction TB
 
-  %% -------- EKS Cluster --------
+  %% ================= EKS CLUSTER =================
   subgraph EKS["EKS cluster"]
     direction TB
 
-    %% namespace: istio-system
-    subgraph NS_ISTIO["namespace: istio-system"]:::ns 
+    %% ---- namespace: istio-system ----
+    subgraph NS_ISTIO["namespace: istio-system"]:::ns
       ISTIOD["Istiod<br/>(control plane)"]:::cp
       EWGW["East-West Gateway<br/>(Gateway API)"]:::dp
       ZtEKS["ztunnel<br/>(ambient dataplane)"]:::zt
     end
 
-    %% namespace: default
-    subgraph NS_DEFAULT["namespace: default"]:::ns 
+    %% ---- namespace: default ----
+    subgraph NS_DEFAULT["namespace: default"]:::ns
       EKS_Shell["pod: eks-shell"]:::dp
       EKS_Echo["pod: eks-echo<br/>port:8080"]:::dp
     end
 
-    %% namespace: ecs-escmulti-1
-    subgraph NS_ECS1["namespace: ecs-escmulti-1"]:::ns 
+    %% ---- namespace: ecs-escmulti-1 ----
+    subgraph NS_ECS1["namespace: ecs-escmulti-1"]:::ns
       SVC1["ServiceEntry:<br/>echo-service"]:::se
       WE1["WorkloadEntries"]:::we
       POL1["Policies"]:::pol
     end
 
-    %% namespace: ecs-escmulti-2
-    subgraph NS_ECS2["namespace: ecs-escmulti-2"]:::ns 
+    %% ---- namespace: ecs-escmulti-2 ----
+    subgraph NS_ECS2["namespace: ecs-escmulti-2"]:::ns
       SVC2["ServiceEntry:<br/>echo-service"]:::se
       WE2["WorkloadEntries"]:::we
       POL2["Policies"]:::pol
     end
 
-    %% namespace: ecs-escmulti-3
+    %% ---- namespace: ecs-escmulti-3 ----
     subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]:::ns
       SVC3["ServiceEntry:<br/>echo-service"]:::se
       WE3["WorkloadEntries"]:::we
@@ -85,11 +87,11 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
   end
 
 
-  %% -------- LOCAL ECS Clusters --------
+  %% ================= LOCAL ECS FARGATE =================
   subgraph ECS_LOCAL["ECS Fargate clusters (LOCAL)"]
     direction TB
 
-    %% ECS1
+    %% ------ ECS1 ------
     subgraph ECS1["ECS cluster: ecs-escmulti-1"]
       direction TB
       subgraph ECS1Echo["task: echo-service"]
@@ -102,7 +104,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
       end
     end
 
-    %% ECS2
+    %% ------ ECS2 ------
     subgraph ECS2["ECS cluster: ecs-escmulti-2"]
       direction TB
       subgraph ECS2Echo["task: echo-service"]
@@ -120,7 +122,9 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
 end
 
 
-%% ================= EXTERNAL ACCOUNT =====================
+%% ======================================================================
+%% AWS EXTERNAL ACCOUNT (REMOTE ECS)
+%% ======================================================================
 subgraph AWS_EXT["External Account"]
   direction TB
   subgraph ECS3["ECS cluster: ecs-escmulti-3"]
@@ -137,21 +141,23 @@ subgraph AWS_EXT["External Account"]
 end
 
 
-%% ================= REGISTRATION / DISCOVERY =================
+%% ======================================================================
+%% REGISTRATION / ENDPOINT DISCOVERY
+%% ======================================================================
 
-%% ecs-escmulti-1
+%% endpoints registering from ECS1
 E1Z -->|"register endpoint"| WE1
 S1Z -->|"register endpoint"| WE1
 
-%% ecs-escmulti-2
+%% endpoints registering from ECS2
 E2Z -->|"register endpoint"| WE2
 S2Z -->|"register endpoint"| WE2
 
-%% ecs-escmulti-3
+%% endpoints registering from ECS3
 E3Z -->|"register endpoint"| WE3
 S3Z -->|"register endpoint"| WE3
 
-%% namespace config to Istiod
+%% namespace config sync to Istiod
 SVC1 --> ISTIOD
 WE1 --> ISTIOD
 POL1 --> ISTIOD
@@ -164,6 +170,7 @@ SVC3 --> ISTIOD
 WE3 --> ISTIOD
 POL3 --> ISTIOD
 
+%% Istio config delivery
 ISTIOD -->|"xDS config"| EWGW
 ISTIOD -->|"ztunnel config"| ZtEKS
 ```
