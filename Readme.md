@@ -173,17 +173,21 @@ POL3 -->|"⓪ config (policies)"| Istiod
 Istiod -->|"⓪ push xDS (routes, clusters, policies)"| EWGW
 Istiod -->|"⓪ push xDS (mesh/ztunnel config)"| ZtEKS
 
-%% DATA PLANE – Example 1 (ECS1 shell → ECS2 echo)
-ECS1ShellApp -->|"① curl → SOCKS5:15080"| ECS1ShellZt
-ECS1ShellZt -->|"② HBONE:15008<br/>src ns=ecs-escmulti-1<br/>dst ns=ecs-escmulti-2"| EWGW
-EWGW -->|"③ HBONE:15008<br/>uses config from ns=ecs-escmulti-2"| ECS2EchoZt
-ECS2EchoZt -->|"④ local TCP"| ECS2EchoApp
+%% DATA PLANE — PATH A (ecs-escmulti-1 shell → ecs-escmulti-2 echo)
+ECS1ShellApp -- A1:"① curl → SOCKS5:15080" --> ECS1ShellZt
+ECS1ShellZt -- A2:"② HBONE:15008 (ns1→ns2)" --> EWGW
+EWGW -- A3:"③ HBONE:15008 (using ns2 config)" --> ECS2EchoZt
+ECS2EchoZt -- A4:"④ local TCP" --> ECS2EchoApp
 
-%% DATA PLANE – Example 2 (EKS pod → External echo)
-EKSClient -->|"① HTTP :8080"| ZtEKS
-ZtEKS -->|"② HBONE:15008<br/>dst ns=ecs-escmulti-3"| EWGW
-EWGW -->|"③ HBONE:15008<br/>uses config from ns=ecs-escmulti-3"| ECS3EchoZt
-ECS3EchoZt -->|"④ local TCP"| ECS3EchoApp
+%% DATA PLANE — PATH B (EKS default → external ecs-escmulti-3 echo)
+EKSClient -- B1:"① HTTP :8080" --> ZtEKS
+ZtEKS -- B2:"② HBONE:15008 (default→ns3)" --> EWGW
+EWGW -- B3:"③ HBONE:15008 (using ns3 config)" --> ECS3EchoZt
+ECS3EchoZt -- B4:"④ local TCP" --> ECS3EchoApp
+
+%% Colorize paths
+linkStyle A1,A2,A3,A4 stroke:#2ECC71,stroke-width:2px
+linkStyle B1,B2,B3,B4 stroke:#E67E22,stroke-width:2px
 
 %% Namespace color
 class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns
