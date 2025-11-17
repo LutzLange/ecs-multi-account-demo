@@ -23,6 +23,8 @@ Deploy a single Istio control plane in an EKS cluster that manages ECS services 
 Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh concepts.
 
 ## Architecture: Service Mesh Perspective
+
+```mermaid
 flowchart LR
 
 %% Styles
