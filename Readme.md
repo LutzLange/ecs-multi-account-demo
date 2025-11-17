@@ -24,7 +24,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 
 ## Architecture: Service Mesh Perspective
 
-
+```mermaid
 flowchart LR
   %% High-level layout: two AWS accounts
   subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
@@ -87,7 +87,7 @@ flowchart LR
 
   %% Local ECS↔ECS via mesh (conceptual)
   ECS1Tasks -->|"HBONE mTLS\nport 15008\nvia ztunnel / EW GW"| ECS2Tasks
-
+```
 
 
 
