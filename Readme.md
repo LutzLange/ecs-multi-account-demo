@@ -49,34 +49,34 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     direction TB
 
     %% namespace: istio-system
-    subgraph NS_ISTIO["namespace: istio-system"]
+    subgraph NS_ISTIO["namespace: istio-system"]:::ns 
       ISTIOD["Istiod<br/>(control plane)"]:::cp
       EWGW["East-West Gateway<br/>(Gateway API)"]:::dp
       ZtEKS["ztunnel<br/>(ambient dataplane)"]:::zt
     end
 
     %% namespace: default
-    subgraph NS_DEFAULT["namespace: default"]
+    subgraph NS_DEFAULT["namespace: default"]:::ns 
       EKS_Shell["pod: eks-shell"]:::dp
       EKS_Echo["pod: eks-echo<br/>port:8080"]:::dp
     end
 
     %% namespace: ecs-escmulti-1
-    subgraph NS_ECS1["namespace: ecs-escmulti-1"]
+    subgraph NS_ECS1["namespace: ecs-escmulti-1"]:::ns 
       SVC1["ServiceEntry:<br/>echo-service"]:::se
       WE1["WorkloadEntries"]:::we
       POL1["Policies"]:::pol
     end
 
     %% namespace: ecs-escmulti-2
-    subgraph NS_ECS2["namespace: ecs-escmulti-2"]
+    subgraph NS_ECS2["namespace: ecs-escmulti-2"]:::ns 
       SVC2["ServiceEntry:<br/>echo-service"]:::se
       WE2["WorkloadEntries"]:::we
       POL2["Policies"]:::pol
     end
 
     %% namespace: ecs-escmulti-3
-    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]
+    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]:::ns
       SVC3["ServiceEntry:<br/>echo-service"]:::se
       WE3["WorkloadEntries"]:::we
       POL3["Policies"]:::pol
