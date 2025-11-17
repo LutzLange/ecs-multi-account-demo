@@ -57,20 +57,23 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
       class EKSClient dp
     end
 
-    %% ECS namespaces in EKS
+    %% ECS namespaces defined in EKS
     subgraph NS_ECS1["namespace: ecs-escmulti-1"]
-      SVC1["Service: echo-service"]
+      SVC1["Service / ServiceEntry:<br/>echo-service"]
       WE1["WorkloadEntries → ECS tasks"]
+      POL1["Policies (authz, etc.)"]
     end
 
     subgraph NS_ECS2["namespace: ecs-escmulti-2"]
-      SVC2["Service: echo-service"]
+      SVC2["Service / ServiceEntry:<br/>echo-service"]
       WE2["WorkloadEntries → ECS tasks"]
+      POL2["Policies (authz, etc.)"]
     end
 
     subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account)"]
-      SVC3["Service: echo-service"]
+      SVC3["Service / ServiceEntry:<br/>echo-service"]
       WE3["WorkloadEntries → External ECS tasks"]
+      POL3["Policies (authz, etc.)"]
     end
   end
 
@@ -81,7 +84,6 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     subgraph ECS1["ECS cluster: ecs-escmulti-1"]
       direction TB
 
-      %% echo task (two containers)
       subgraph ECS1Echo["task: echo-service"]
         direction TB
         ECS1EchoApp["container: echo-service<br/>port 8080"]
@@ -89,7 +91,6 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
         class ECS1EchoApp,ECS1EchoZt ct
       end
 
-      %% shell task (two containers)
       subgraph ECS1Shell["task: shell"]
         direction TB
         ECS1ShellApp["container: shell<br/>curl via ALL_PROXY"]
@@ -101,12 +102,14 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
 
     subgraph ECS2["ECS cluster: ecs-escmulti-2"]
       direction TB
+
       subgraph ECS2Echo["task: echo-service"]
         direction TB
         ECS2EchoApp["container: echo-service<br/>port 8080"]
         ECS2EchoZt["container: ztunnel"]
         class ECS2EchoApp,ECS2EchoZt ct
       end
+
       subgraph ECS2Shell["task: shell"]
         direction TB
         ECS2ShellApp["container: shell"]
@@ -140,25 +143,39 @@ subgraph AWS_EXT["External Account"]
   end
 end
 
-%% Registration (WorkloadEntries map ECS tasks to mesh)
-ECS1Echo --- WE1
-ECS2Echo --- WE2
-ECS3Echo --- WE3
+%% ⓪ REGISTRATION / CONFIG RELATIONSHIPS
+ECS1EchoZt -->|"⓪ register endpoint<br/>(WorkloadEntry)"| WE1
+ECS2EchoZt -->|"⓪ register endpoint<br/>(WorkloadEntry)"| WE2
+ECS3EchoZt -->|"⓪ register endpoint<br/>(WorkloadEntry)"| WE3
 
-%% CONTROL PLANE (unchanged)
-Istiod -->|"xDS mTLS 15012"| EWGW
-Istiod -->|"xDS mTLS 15012"| ZtEKS
+SVC1 -->|"⓪ config (Svc / SvcEntry)"| Istiod
+WE1  -->|"⓪ config (WorkloadEntry)"| Istiod
+POL1 -->|"⓪ config (policies)"| Istiod
 
-%% DATA PLANE — EXAMPLE 1 (ECS1 shell → ECS2 echo)
+SVC2 -->|"⓪ config (Svc / SvcEntry)"| Istiod
+WE2  -->|"⓪ config (WorkloadEntry)"| Istiod
+POL2 -->|"⓪ config (policies)"| Istiod
+
+SVC3 -->|"⓪ config (Svc / SvcEntry)"| Istiod
+WE3  -->|"⓪ config (WorkloadEntry)"| Istiod
+POL3 -->|"⓪ config (policies)"| Istiod
+
+Istiod -->|"⓪ push xDS<br/>(routes, clusters, policies)"| EWGW
+Istiod -->|"⓪ push xDS<br/>(mesh/ztunnel config)"| ZtEKS
+
+%% CONTROL PLANE SUMMARY (already partly above)
+%% (kept minimal not to overload with arrows)
+
+%% ①–④ DATA PLANE — EXAMPLE 1 (ECS1 shell → ECS2 echo)
 ECS1ShellApp -->|"① curl → SOCKS5:15080"| ECS1ShellZt
 ECS1ShellZt -->|"② HBONE:15008<br/>src ns=ecs-escmulti-1<br/>dst ns=ecs-escmulti-2"| EWGW
-EWGW -->|"③ HBONE:15008<br/>mesh routing via namespace"| ECS2EchoZt
+EWGW -->|"③ HBONE:15008<br/>uses config from ns ecs-escmulti-2"| ECS2EchoZt
 ECS2EchoZt -->|"④ local TCP"| ECS2EchoApp
 
-%% DATA PLANE — EXAMPLE 2 (EKS pod → External echo)
+%% ①–④ DATA PLANE — EXAMPLE 2 (EKS pod → External echo)
 EKSClient -->|"① HTTP :8080"| ZtEKS
 ZtEKS -->|"② HBONE:15008<br/>dst ns=ecs-escmulti-3"| EWGW
-EWGW -->|"③ HBONE:15008"| ECS3EchoZt
+EWGW -->|"③ HBONE:15008<br/>uses config from ns ecs-escmulti-3"| ECS3EchoZt
 ECS3EchoZt -->|"④ local TCP"| ECS3EchoApp
 
 %% Namespace color
