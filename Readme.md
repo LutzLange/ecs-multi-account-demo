@@ -28,54 +28,54 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 ```mermaid
 flowchart LR
 
-%% ===================== GLOBAL STYLES ===================== %%
-classDef ns fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px                 %% Namespace = light-gray
-classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px                 %% Control plane components
-classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px                 %% Data plane workloads
-classDef ct fill:#FFFFFF,stroke:#7A7A7A,stroke-width:1px                 %% Application containers
-classDef zt fill:#FFE0B2,stroke:#FF8A00,stroke-width:1px                 %% ztunnel containers
+%% ===================== STYLE DEFINITIONS =====================
+classDef ns fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+classDef cp fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px
+classDef dp fill:#E8EAF6,stroke:#3949AB,stroke-width:1px
+classDef ct fill:#FFFFFF,stroke:#7A7A7A,stroke-width:1px
+classDef zt fill:#FFE0B2,stroke:#FF8A00,stroke-width:1px
 
-classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px                 %% ServiceEntry/Service
-classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px                 %% WorkloadEntry
-classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px                %% Policies
+classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px
+classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px
+classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px
 
 
-%% ================= AWS LOCAL ACCOUNT ================= %%
+%% ================= AWS LOCAL ACCOUNT =====================
 subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
   direction TB
 
-  %% -------- EKS CLUSTER -------- %%
+  %% -------- EKS Cluster --------
   subgraph EKS["EKS cluster"]
     direction TB
 
-    %% ---- namespace: istio-system ---- %%
+    %% namespace: istio-system
     subgraph NS_ISTIO["namespace: istio-system"]
       ISTIOD["Istiod<br/>(control plane)"]:::cp
       EWGW["East-West Gateway<br/>(Gateway API)"]:::dp
       ZtEKS["ztunnel<br/>(ambient dataplane)"]:::zt
     end
 
-    %% ---- namespace: default ---- %%
+    %% namespace: default
     subgraph NS_DEFAULT["namespace: default"]
       EKS_Shell["pod: eks-shell"]:::dp
       EKS_Echo["pod: eks-echo<br/>port:8080"]:::dp
     end
 
-    %% ---- namespace: ecs-escmulti-1 ---- %%
+    %% namespace: ecs-escmulti-1
     subgraph NS_ECS1["namespace: ecs-escmulti-1"]
       SVC1["ServiceEntry:<br/>echo-service"]:::se
       WE1["WorkloadEntries"]:::we
       POL1["Policies"]:::pol
     end
 
-    %% ---- namespace: ecs-escmulti-2 ---- %%
+    %% namespace: ecs-escmulti-2
     subgraph NS_ECS2["namespace: ecs-escmulti-2"]
       SVC2["ServiceEntry:<br/>echo-service"]:::se
       WE2["WorkloadEntries"]:::we
       POL2["Policies"]:::pol
     end
 
-    %% ---- namespace: ecs-escmulti-3 ---- %%
+    %% namespace: ecs-escmulti-3
     subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]
       SVC3["ServiceEntry:<br/>echo-service"]:::se
       WE3["WorkloadEntries"]:::we
@@ -85,7 +85,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
   end
 
 
-  %% -------- LOCAL ECS CLUSTERS -------- %%
+  %% -------- LOCAL ECS Clusters --------
   subgraph ECS_LOCAL["ECS Fargate clusters (LOCAL)"]
     direction TB
 
@@ -120,7 +120,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
 end
 
 
-%% ================= EXTERNAL ACCOUNT ECS ================= %%
+%% ================= EXTERNAL ACCOUNT =====================
 subgraph AWS_EXT["External Account"]
   direction TB
   subgraph ECS3["ECS cluster: ecs-escmulti-3"]
@@ -137,7 +137,7 @@ subgraph AWS_EXT["External Account"]
 end
 
 
-%% ================= REGISTRATION / DISCOVERY ================= %%
+%% ================= REGISTRATION / DISCOVERY =================
 
 %% ecs-escmulti-1
 E1Z -->|"register endpoint"| WE1
