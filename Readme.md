@@ -25,6 +25,7 @@ Part 1 automates AWS infrastructure complexity, Part 2 focuses on service mesh c
 ## Architecture: Service Mesh Perspective
 
 ```mermaid
+```mermaid
 flowchart LR
 
 %% Styles
@@ -184,7 +185,9 @@ ZtEKS -->|"② HBONE:15008<br/>dst ns=ecs-escmulti-3"| EWGW
 EWGW -->|"③ HBONE:15008<br/>uses config from ns=ecs-escmulti-3"| ECS3EchoZt
 ECS3EchoZt -->|"④ local TCP"| ECS3EchoApp
 
-::contentReference[oaicite:0]{index=0}
+%% Namespace color
+class NS_DEFAULT,NS_ECS1,NS_ECS2,NS_ECS3 ns
+
 ```
 
 
