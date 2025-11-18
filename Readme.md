@@ -75,7 +75,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     end
 
     %% ---- namespace: ecs-escmulti-3 (external view) ----
-    subgraph NS_ECS3["namespace: ecs-escmulti-3<br/>(External Account services)"]
+    subgraph NS_ECS3["namespace: ecs-escmulti-3"]
       SVC3["ServiceEntry:<br/>echo-service"]:::se
       WE3["WorkloadEntries"]:::we
       POL3["Policies"]:::pol
