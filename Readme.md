@@ -2,7 +2,6 @@
 
 TODO: 
 - check and improve L7 policy section (waiting on engineering) 
-- update diagram
 
 # Istio Ambient Multi-Account ECS Integration
 
