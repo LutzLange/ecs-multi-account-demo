@@ -35,7 +35,7 @@ classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px
 classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px
 classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px
 classDef ecs fill:#FF9900,stroke:#FF9900,stroke-width:1px
-classDef k8s fill:#326CE5,stroke:#326CE5,stroke-width:1px
+classDef k8s fill:#86b3f7,stroke:#86b3f7,stroke-width:1px
 
 %% ======================================================================
 %% AWS LOCAL ACCOUNT
