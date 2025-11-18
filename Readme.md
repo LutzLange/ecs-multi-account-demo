@@ -179,6 +179,8 @@ style NS_DEFAULT fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 style NS_ECS1 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 style NS_ECS2 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 style NS_ECS3 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+class ECS1,ECS2,ECS3 ecs
+class ECS1Echo,ECS1Shell,ECS2Echo,ECS2Shell,ECS3Echo,ECS3Shell dp
 ```
 
 
