@@ -35,6 +35,7 @@ classDef se fill:#BBDEFB,stroke:#1976D2,stroke-width:1px
 classDef we fill:#FFE082,stroke:#FFA000,stroke-width:1px
 classDef pol fill:#FFCDD2,stroke:#E53935,stroke-width:1px
 classDef ecs fill:#FF9900,stroke:#FF9900,stroke-width:1px
+classDef k8s fill:#326CE5,stroke:#326CE5,stroke-width:1px
 
 %% ======================================================================
 %% AWS LOCAL ACCOUNT
@@ -181,6 +182,7 @@ style NS_ECS2 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 style NS_ECS3 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 class ECS1,ECS2,ECS3 ecs
 class ECS1Echo,ECS1Shell,ECS2Echo,ECS2Shell,ECS3Echo,ECS3Shell dp
+class EKS k8s
 ```
 
 
