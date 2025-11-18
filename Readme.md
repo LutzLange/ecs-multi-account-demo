@@ -89,7 +89,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     direction TB
 
     %% ------ ECS1 ------
-    subgraph ECS1["ECS cluster: ecs-escmulti-1"]:::ecs
+    subgraph ECS1["ECS cluster: ecs-escmulti-1"]
       direction TB
       subgraph ECS1Echo["task: echo-service"]
         E1A["container: echo-service<br/>port:8080"]:::ct
@@ -102,7 +102,7 @@ subgraph AWS_LOCAL["AWS Account A (LOCAL)"]
     end
 
     %% ------ ECS2 ------
-    subgraph ECS2["ECS cluster: ecs-escmulti-2"]:::ecs
+    subgraph ECS2["ECS cluster: ecs-escmulti-2"]
       direction TB
       subgraph ECS2Echo["task: echo-service"]
         E2A["container: echo-service<br/>port:8080"]:::ct
@@ -124,7 +124,7 @@ end
 %% ======================================================================
 subgraph AWS_EXT["External Account"]
   direction TB
-  subgraph ECS3["ECS cluster: ecs-escmulti-3"]:::ecs
+  subgraph ECS3["ECS cluster: ecs-escmulti-3"]
     direction TB
     subgraph ECS3Echo["task: echo-service"]
       E3A["container: echo-service<br/>port:8080"]:::ct
