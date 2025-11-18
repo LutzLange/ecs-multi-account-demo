@@ -120,7 +120,7 @@ end
 
 
 %% ======================================================================
-%% AWS EXTERNAL ACCOUNT (REMOTE ECS)
+%% AWS EXTERNALACCOUNT 
 %% ======================================================================
 subgraph AWS_EXT["External Account"]
   direction TB
@@ -182,33 +182,6 @@ style NS_ECS2 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 style NS_ECS3 fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
 ```
 
-
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    ISTIO CONTROL PLANE                  │
-│                      (in EKS cluster)                   │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐         │
-│  │  Istiod  │  │ Ztunnel  │  │  East-West GW  │         │
-│  │          │  │  (CNI)   │  │   (HBONE)      │         │
-│  └──────────┘  └──────────┘  └────────────────┘         │
-│       │                              │                  │
-│       │ Service Discovery            │ Secure tunnel    │
-│       │ Policy Enforcement           │ mTLS (HBONE)     │
-│       │                              │                  │
-└───────┼──────────────────────────────┼──────────────────┘
-        │                              │
-        ├──────────┬───────────────────┼───────────┐
-        │          │                   │           │
-        ▼          ▼                   ▼           ▼
-   ┌─────────┐ ┌─────────┐       ┌─────────┐  ┌─────────┐
-   │ Cluster │ │ Cluster │       │ Cluster │  │ EKS Pod │
-   │    1    │ │    2    │       │    3    │  │         │
-   │ (local) │ │ (local) │       │(external)│ │         │
-   └─────────┘ └─────────┘       └─────────┘  └─────────┘
-     ecs.local   ecs.local        ecs.external
-```
 
 ### Key Service Mesh Concepts
 
