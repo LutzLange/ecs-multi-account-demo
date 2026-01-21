@@ -4,7 +4,6 @@ kind: ClusterConfig
 metadata:
   name: ${CLUSTER_NAME}
   region: ${AWS_REGION}
-  version: \"${EKS_VERSION}\"
   tags:
     owner: ${OWNER_NAME}
 

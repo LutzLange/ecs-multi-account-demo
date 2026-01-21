@@ -32,7 +32,7 @@ Environment Variables (used as defaults):
   AWS_PROFILE           AWS profile (primary)
   INT                   AWS profile (fallback)
   ECS_SERVICE_NAME      Service name (default: shell-task)
-  ECS_CONTAINER_NAME    Container name (default: shell)
+  ECS_CONTAINER_NAME    Container name (default: shell-task)
 
 Examples:
   # GET request
@@ -53,7 +53,7 @@ EOF
 
 # Parse arguments
 TARGET_URL=""
-ORIGIN_CLUSTER=""
+ORIGIN_CLUSTER="${ORIGIN_CLUSTER:-}"  # Preserve environment variable if set
 REGION=""
 PROFILE=""
 DATA=""
@@ -143,15 +143,21 @@ if [ -z "$REGION" ]; then
 fi
 
 if [ -z "$PROFILE" ]; then
-    if [ -n "$AWS_PROFILE" ]; then
+    # Auto-detect profile based on cluster name
+    # Cluster 3 (external account) needs EXT profile, others need INT profile
+    if [[ "$ORIGIN_CLUSTER" == *"-3" ]] && [ -n "$EXT" ]; then
+        PROFILE="$EXT"
+        echo "Using external account profile for cluster 3: $PROFILE"
+    elif [ -n "$AWS_PROFILE" ]; then
         PROFILE="$AWS_PROFILE"
+        echo "Using profile from environment: $PROFILE"
     elif [ -n "$INT" ]; then
         PROFILE="$INT"
+        echo "Using profile from environment: $PROFILE"
     else
         echo "Error: --profile not provided and neither \$AWS_PROFILE nor \$INT are set"
         exit 1
     fi
-    echo "Using profile from environment: $PROFILE"
 fi
 
 # Service and container names (can be overridden by environment variables)

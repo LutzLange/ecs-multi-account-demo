@@ -7,7 +7,7 @@
     "containerDefinitions": [
         {
             "name": "echo-service",
-            "image": "ealen/echo-server:latest",
+            "image": "public.ecr.aws/j8r2p7b6/echo-server:latest",
             "essential": true,
             "portMappings": [
                 {
@@ -19,6 +19,10 @@
                 {
                     "name": "PORT",
                     "value": "8080"
+                },
+                {
+                    "name": "ALL_PROXY",
+                    "value": "socks5h://127.0.0.1:15080"
                 }
             ]
         }
