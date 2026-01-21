@@ -95,8 +95,8 @@ export NUMBER_NODES=2
 export NODE_TYPE=t2.medium
 
 # Istio Configuration (Solo.io distribution)
-export HUB=us-east1-docker.pkg.dev/istio-enterprise-private/gme-istio-testing-images
-export ISTIO_TAG=1.29-alpha.20806789ba7dd5528bab31384ca99d3d6f78b122
+export HUB=us-docker.pkg.dev/gloo-mesh/istio-594e990587b9
+export ISTIO_TAG=1.28.1-solo
 export GLOO_MESH_LICENSE_KEY=<your-license-key>
 
 # ============================================
